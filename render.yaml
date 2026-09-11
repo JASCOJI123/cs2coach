@@ -1,14 +1,19 @@
 # Render Blueprint for CS2 AI COACH (spec §68–§70).
 #
-# Free-tier allocation:
-#   1 × Web Service    → cs2coach-api (Fastify backend)
-#   1 × Background Worker → cs2coach-bot (grammY long-polling)
-#   Static Site        → cs2coach-frontend (created manually in dashboard)
+# Free-tier allocation (Render Free limits):
+#   - 1 × Web Service total per account  → cs2coach-api (Fastify backend)
+#   - Background Workers are NOT available on the free plan (pullik talab)
+#   - Static Sites are free but the blueprint type is NOT supported in YAML
 #
-# The frontend is NOT in this Blueprint because Render Blueprints don't support
-# the static_site type. Create it manually:
-#   New + → Static Site → GitHub → repo: JASCOJI123/cs2coach
-#   Root Dir: apps/web | Build: npm ci && npm run build | Publish: dist
+# So this Blueprint contains ONLY the API. The other two pieces are manual:
+#
+#   ● Frontend (Static Site) — create manually:
+#       New + → Static Site → GitHub → repo: JASCOJI123/cs2coach
+#       Root Dir: apps/web | Build: npm ci && npm run build | Publish: dist
+#       URL: https://cs2coach-frontend.onrender.com  →  set ALLOWED_ORIGINS
+#
+#   ● Telegram bot — cannot run on Render Free (no worker, single web slot
+#     taken by the API). Run it locally (npm run dev:bot) or on another host.
 #
 #   Postgres: Neon Free (set DATABASE_URL in the API env group).
 #
@@ -51,25 +56,6 @@ services:
       - key: FACEIT_WEBHOOK_SECRET
         sync: false
       - key: GROQ_API_KEY
-        sync: false
-
-  - type: worker
-    name: cs2coach-bot
-    runtime: node
-    region: frankfurt
-    plan: free
-    rootDir: .
-    buildCommand: npm ci && npm run build
-    startCommand: node bot/dist/bot.js
-    autoDeploy: true
-    envVars:
-      - key: NODE_ENV
-        value: production
-      - key: DATABASE_URL
-        sync: false
-      - key: TELEGRAM_BOT_TOKEN
-        sync: false
-      - key: TELEGRAM_WEBAPP_URL
         sync: false
 
 # UptimeRobot (spec §69): add an HTTPS monitor against
