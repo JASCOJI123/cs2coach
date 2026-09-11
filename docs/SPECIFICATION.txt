@@ -1,0 +1,2600 @@
+============================================================
+PROJECT: CS2 AI COACH
+============================================================
+
+You are the lead full-stack engineer, AI engineer,
+backend architect, frontend engineer and DevOps engineer.
+
+Your job is to BUILD this project, not just describe it.
+
+The final result must be a real, deployable Telegram Mini App
+for CS2 players.
+
+IMPORTANT:
+
+Do not create a fake prototype.
+
+Do not pretend that unavailable APIs provide data they do not provide.
+
+Do not invent live match data.
+
+If an external service cannot provide a required data point,
+create a clean provider interface and implement everything
+that can actually work.
+
+The application must gracefully show:
+"Waiting for live game data"
+when real-time game-state data is unavailable.
+
+============================================================
+1. PRODUCT VISION
+============================================================
+
+Product name:
+
+CS2 AI COACH
+
+Platform:
+
+Telegram Bot + Telegram Mini App
+
+Infrastructure:
+
+GitHub
+Render Free
+Neon PostgreSQL Free
+UptimeRobot Free
+Groq API
+FACEIT API
+Telegram Bot API
+
+Main concept:
+
+A player opens the Telegram bot.
+
+The player opens the Mini App.
+
+The player connects their FACEIT account.
+
+The system automatically finds relevant FACEIT matches.
+
+Before the match:
+- analyze players
+- analyze teams
+- analyze statistics
+- analyze map
+- analyze opponent
+- estimate strengths and weaknesses
+- create tactical plan
+
+During the match:
+- display live match state when available
+- display map/veto information when available
+- analyze rounds
+- learn opponent behavior
+- analyze player performance
+- generate next-round recommendations
+- provide individual instructions
+
+After the match:
+- analyze performance
+- identify mistakes
+- identify strengths
+- generate personalized training plan
+
+The product should feel like:
+
+"A professional CS2 coach sitting beside the player."
+
+============================================================
+2. CORE USER FLOW
+============================================================
+
+USER:
+
+Telegram
+↓
+/start
+↓
+OPEN CS2 AI COACH
+↓
+Telegram Mini App
+↓
+CONNECT FACEIT
+↓
+FACEIT OAuth
+↓
+FACEIT account connected
+↓
+Upcoming/Ongoing matches detected
+↓
+Select/auto-open relevant match
+↓
+Pre-match AI analysis
+↓
+Map/Veto information when available
+↓
+Match starts
+↓
+LIVE COACH
+↓
+Round 1
+↓
+Analyze
+↓
+Recommendation
+↓
+Round 2
+↓
+Analyze
+↓
+Adapt
+↓
+...
+↓
+Match ends
+↓
+Post-match analysis
+↓
+Training plan
+
+============================================================
+3. ABSOLUTE REQUIREMENT:
+NO FAKE DATA
+============================================================
+
+Never fake:
+
+- score
+- player position
+- kills
+- deaths
+- economy
+- weapons
+- utility
+- map veto
+- round state
+- live match status
+- AI confidence
+- player statistics
+
+If data is not available:
+
+show:
+
+"Waiting for live game data"
+
+or
+
+"Data unavailable from current source"
+
+or
+
+"Demo mode"
+
+Only demo mode may contain simulated data.
+
+Production mode must never silently use demo data.
+
+============================================================
+4. TECHNOLOGY
+============================================================
+
+Use:
+
+FRONTEND:
+React
+TypeScript
+Vite
+
+BACKEND:
+Node.js
+TypeScript
+Fastify preferred
+
+DATABASE:
+Neon PostgreSQL
+
+AI:
+Groq API
+
+BOT:
+Telegram Bot API
+
+MINI APP:
+Telegram WebApp SDK
+
+FACEIT:
+FACEIT Data API
+FACEIT OAuth / FACEIT Connect
+FACEIT Webhooks
+
+HOSTING:
+Render Free
+
+MONITORING:
+UptimeRobot Free
+
+SOURCE CONTROL:
+GitHub
+
+============================================================
+5. FREE ONLY
+============================================================
+
+Do not introduce paid infrastructure.
+
+Do not require:
+
+AWS
+Firebase
+Supabase
+Redis Cloud
+MongoDB Atlas
+OpenAI
+Anthropic API
+paid VPS
+paid database
+paid queue
+paid monitoring
+
+Use only:
+
+GitHub
+Render Free
+Neon Free
+UptimeRobot Free
+Groq Free
+Telegram
+FACEIT
+
+If a feature absolutely requires something else,
+stop and clearly explain why before introducing it.
+
+============================================================
+6. IMPORTANT FREE-TIER ARCHITECTURE
+============================================================
+
+Render Free services can sleep.
+
+Therefore implement:
+
+GET /health
+
+GET /api/health
+
+These endpoints must:
+
+- return HTTP 200
+- be very fast
+- not call Groq
+- not call FACEIT
+- not perform expensive DB queries
+
+UptimeRobot can ping:
+
+/health
+
+The application must also correctly recover after
+Render wakes from sleep.
+
+Never store persistent application data on local filesystem.
+
+Render filesystem is ephemeral.
+
+Use Neon PostgreSQL for persistence.
+
+============================================================
+7. PROJECT STRUCTURE
+============================================================
+
+Preferred structure:
+
+/
+  apps/
+    api/
+    web/
+
+  packages/
+    shared/
+    database/
+    faceit/
+    ai/
+    tactical-engine/
+    game-state/
+
+  bot/
+
+  docs/
+
+  scripts/
+
+  .env.example
+
+  package.json
+
+  tsconfig.json
+
+  README.md
+
+  render.yaml
+
+If the repository already has a good architecture,
+DO NOT unnecessarily rewrite it.
+
+First inspect the repository.
+
+============================================================
+8. TELEGRAM BOT
+============================================================
+
+Create Telegram bot.
+
+Commands:
+
+/start
+/help
+/profile
+/matches
+/coach
+/settings
+
+/start:
+
+CS2 AI COACH
+
+Your personal AI tactical coach.
+
+Buttons:
+
+OPEN AI COACH
+CONNECT FACEIT
+MY PROFILE
+
+OPEN AI COACH opens Telegram Mini App.
+
+============================================================
+9. TELEGRAM MINI APP
+============================================================
+
+The Mini App must be mobile-first.
+
+Target:
+
+iPhone
+Android
+
+Secondary:
+Desktop
+
+Design:
+
+Premium CS2 tactical/esports style.
+
+Do NOT copy copyrighted Valve/CS2 UI assets.
+
+Create an original visual identity inspired by:
+
+- tactical HUD
+- dark graphite
+- black
+- subtle red/orange accent
+- glowing borders
+- glass panels
+- radar elements
+- map elements
+- animated cards
+- live indicators
+- tactical typography
+
+Use smooth but lightweight animations.
+
+============================================================
+10. MINI APP SCREENS
+============================================================
+
+SCREEN:
+
+SPLASH
+
+Animated:
+
+CS2 AI COACH
+
+"Analyzing battlefield..."
+
+Then HOME.
+
+------------------------------------------------------------
+
+HOME:
+
+FACEIT PROFILE
+
+Avatar
+Nickname
+Level
+ELO
+
+MATCHES:
+
+Upcoming
+Live
+Recent
+
+AI COACH:
+
+Ready
+Analyzing
+Live
+
+------------------------------------------------------------
+
+FACEIT CONNECT:
+
+CONNECT FACEIT
+
+After OAuth:
+
+✓ FACEIT CONNECTED
+
+Display:
+
+nickname
+avatar
+country
+level
+ELO
+
+------------------------------------------------------------
+
+MATCH LIST:
+
+UPCOMING MATCHES
+
+ONGOING MATCHES
+
+RECENT MATCHES
+
+Card:
+
+TEAM A
+VS
+TEAM B
+
+Map
+
+Score
+
+Status
+
+AI Status
+
+------------------------------------------------------------
+
+MATCH PAGE:
+
+Header:
+
+LIVE
+TEAM A 12 : 10 TEAM B
+
+Map:
+MIRAGE
+
+Round:
+24
+
+VETO:
+
+BAN
+BAN
+PICK
+PICK
+
+Only show real veto information.
+
+If unavailable:
+
+"Waiting for veto data"
+
+------------------------------------------------------------
+
+LIVE COACH:
+
+AI COACH
+
+YOUR NEXT ACTION
+
+TAKE MID CONTROL
+
+YOUR ROLE
+
+ENTRY
+
+POSITION
+
+A RAMP
+
+TIMING
+
+1:28
+
+UTILITY
+
+FLASH
+
+WARNING
+
+Enemy AWPer frequently plays Window.
+
+Buttons:
+
+WHY?
+
+FULL ANALYSIS
+
+TEAM
+
+------------------------------------------------------------
+
+POST MATCH:
+
+FINAL SCORE
+
+PLAYER PERFORMANCE
+
+Aim
+Positioning
+Decision Making
+Utility
+Trading
+Opening
+Clutch
+Teamplay
+
+Then:
+
+BEST ROUND
+
+WORST ROUND
+
+TOP MISTAKES
+
+TOP DECISIONS
+
+OPPONENT PATTERNS
+
+TRAINING PLAN
+
+============================================================
+11. TELEGRAM SECURITY
+============================================================
+
+Validate Telegram Mini App initData on backend.
+
+Never trust telegram_id directly from frontend.
+
+Never expose:
+
+DATABASE_URL
+GROQ_API_KEY
+FACEIT_CLIENT_SECRET
+FACEIT_API_KEY
+TELEGRAM_BOT_TOKEN
+
+to frontend.
+
+All secrets must be environment variables.
+
+Create:
+
+.env.example
+
+Never commit:
+
+.env
+
+============================================================
+12. FACEIT AUTH
+============================================================
+
+Use FACEIT OAuth / FACEIT Connect.
+
+Never request FACEIT password.
+
+Flow:
+
+Mini App
+↓
+Connect FACEIT
+↓
+FACEIT authorization
+↓
+Callback
+↓
+Backend validates OAuth state
+↓
+Fetch FACEIT profile
+↓
+Save account
+↓
+Create application session
+↓
+Return Mini App
+
+Use secure OAuth state.
+
+Required environment:
+
+FACEIT_CLIENT_ID
+FACEIT_CLIENT_SECRET
+FACEIT_REDIRECT_URI
+FACEIT_API_KEY
+
+============================================================
+13. FACEIT DATA
+============================================================
+
+Create centralized:
+
+FaceitApiClient
+
+All FACEIT requests must go through it.
+
+Implement:
+
+- timeout
+- retry
+- rate-limit handling
+- caching
+- logging
+
+Do not call FACEIT API directly from random route handlers.
+
+Cache data when appropriate.
+
+Avoid aggressive polling.
+
+============================================================
+14. MATCH AUTO-DETECTION
+============================================================
+
+After FACEIT connection:
+
+automatically retrieve relevant matches.
+
+Show:
+
+UPCOMING
+ONGOING
+RECENT
+
+Use FACEIT webhooks when possible.
+
+Use polling as fallback.
+
+Do NOT poll every second.
+
+Suggested fallback:
+
+30-60 second interval.
+
+When a match becomes active:
+
+create/update match record.
+
+When match ends:
+
+mark it finished.
+
+============================================================
+15. FACEIT WEBHOOKS
+============================================================
+
+Implement:
+
+POST /api/faceit/webhook
+
+Support available match lifecycle events.
+
+Examples:
+
+match_object_created
+match_status_configuring
+match_status_ready
+match_status_finished
+match_status_aborted
+match_status_cancelled
+match_demo_ready
+
+Validate webhook authentication.
+
+Make webhook processing idempotent.
+
+If same webhook arrives twice,
+do not create duplicate records.
+
+============================================================
+16. MAP VETO
+============================================================
+
+When FACEIT provides map/veto information:
+
+display it live.
+
+Example:
+
+MAP VETO
+
+BAN
+BAN
+PICK
+PICK
+
+SELECTED MAP:
+
+MIRAGE
+
+If exact event data is unavailable:
+
+DO NOT INVENT IT.
+
+Display:
+
+"Waiting for FACEIT veto data"
+
+Architecture must support future integration.
+
+============================================================
+17. PRE-MATCH AI
+============================================================
+
+Before match starts:
+
+collect:
+
+- team statistics
+- player statistics
+- ELO
+- level
+- recent matches
+- map statistics
+- player form
+- team composition
+- available historical information
+
+Generate:
+
+WIN PROBABILITY
+
+TEAM STRENGTHS
+
+TEAM WEAKNESSES
+
+PLAYER ROLES
+
+MAP ANALYSIS
+
+TACTICAL PLAN
+
+OPPONENT THREATS
+
+============================================================
+18. GROQ AI
+============================================================
+
+Groq is used as the reasoning/explanation layer.
+
+Do NOT use Groq for every game event.
+
+Bad:
+
+player moves
+→ Groq
+
+player moves
+→ Groq
+
+kill
+→ Groq
+
+weapon switch
+→ Groq
+
+This will waste free limits.
+
+Correct:
+
+RAW EVENTS
+↓
+LOCAL STATE ENGINE
+↓
+EVENT AGGREGATION
+↓
+TACTICAL ENGINE
+↓
+GROQ WHEN DECISION IS REQUIRED
+
+Possible Groq triggers:
+
+- pre-match
+- map selected
+- round ended
+- economy change
+- major opponent pattern
+- side switch
+- clutch
+- timeout
+- match finished
+
+Use cooldowns.
+
+Cache context.
+
+Use compact JSON.
+
+Handle 429.
+
+Read rate-limit headers when available.
+
+Never crash because Groq is unavailable.
+
+============================================================
+19. GROQ FALLBACK
+============================================================
+
+If Groq fails:
+
+use deterministic tactical rules.
+
+Example:
+
+Enemy AWPer repeatedly Window:
+
+→ "Pressure Window."
+
+Low economy:
+
+→ "Low-buy strategy."
+
+Entry player without flash:
+
+→ "Wait for support flash."
+
+Repeated deaths from same position:
+
+→ "Change entry route."
+
+The application must remain functional.
+
+============================================================
+20. AI OUTPUT
+============================================================
+
+Groq must return structured JSON.
+
+Example:
+
+{
+  "priority": "HIGH",
+  "action": "B_EXECUTE",
+  "confidence": 0.78,
+  "reason": "Enemy B anchor rotates late.",
+  "player_instructions": [
+    {
+      "player": "Jasur",
+      "role": "ENTRY",
+      "action": "Take B apps control",
+      "timing": "1:25",
+      "utility": "flash",
+      "fallback": "fall back if first contact is unfavorable"
+    }
+  ]
+}
+
+Validate using Zod.
+
+If invalid:
+
+retry once.
+
+If still invalid:
+
+fallback to tactical engine.
+
+============================================================
+21. AI CONFIDENCE
+============================================================
+
+Every recommendation:
+
+confidence:
+0.0 - 1.0
+
+Display:
+
+LOW
+MEDIUM
+HIGH
+
+Do not display fake precision.
+
+If insufficient data:
+
+LOW
+
+"Insufficient data."
+
+============================================================
+22. MATCH STATE ENGINE
+============================================================
+
+Create:
+
+MatchState
+
+Fields:
+
+matchId
+map
+score
+round
+side
+phase
+players
+alivePlayers
+economy
+weapons
+utility
+bomb
+positions
+mapControl
+recentEvents
+previousRounds
+opponentPatterns
+teamPatterns
+
+Every state update:
+
+stateVersion
+timestamp
+
+============================================================
+23. REAL-TIME GAME DATA
+============================================================
+
+CRITICAL:
+
+FACEIT API / webhooks must NOT be assumed to provide
+every CS2 game event.
+
+Separate:
+
+FACEIT PLATFORM DATA
+
+from:
+
+CS2 GAME STATE DATA.
+
+Create interface:
+
+GameStateProvider
+
+Methods:
+
+getCurrentState()
+
+subscribeToEvents()
+
+disconnect()
+
+Implement:
+
+FaceitMatchProvider
+
+and:
+
+CS2GameStateProvider
+
+The CS2 provider must be designed so a legitimate
+real-time CS2 game-state source can be connected.
+
+Do NOT fake this source.
+
+============================================================
+24. GAME STATE PIPELINE
+============================================================
+
+CS2 GAME STATE
+
+↓
+
+GameStateProvider
+
+↓
+
+GameStateNormalizer
+
+↓
+
+EventBus
+
+↓
+
+MatchStateEngine
+
+↓
+
+RoundEngine
+
+↓
+
+StatisticsEngine
+
+↓
+
+OpponentModel
+
+↓
+
+TacticalEngine
+
+↓
+
+Groq
+
+↓
+
+RecommendationValidator
+
+↓
+
+WebSocket
+
+↓
+
+Telegram Mini App
+
+============================================================
+25. ROUND ENGINE
+============================================================
+
+Track:
+
+round start
+round end
+winner
+kills
+deaths
+opening duel
+bomb
+site
+utility
+damage
+trades
+positions
+rotations
+timings
+economy
+
+After round ends:
+
+generate:
+
+ROUND ANALYSIS
+
+Example:
+
+ROUND 12
+
+LOSS
+
+Reason:
+
+A execute failed.
+
+Detected:
+
+- Entry died before support flash.
+- Enemy AWPer held Window.
+- Second player was late.
+- B defender rotated late.
+
+NEXT ROUND:
+
+Take mid control.
+
+============================================================
+26. INDIVIDUAL COACHING
+============================================================
+
+Every player gets individual instructions.
+
+Roles:
+
+ENTRY
+AWPER
+LURKER
+SUPPORT
+IGL
+RIFLER
+ANCHOR
+
+Example:
+
+JASUR
+
+ROLE:
+ENTRY
+
+OBJECTIVE:
+A RAMP CONTROL
+
+ACTION:
+Wait for flash.
+
+TIMING:
+1:32
+
+TARGET:
+First contact
+
+WARNING:
+Enemy AWPer played Window in 4 of last 5 relevant rounds.
+
+FALLBACK:
+Do not force the duel.
+
+============================================================
+27. OPPONENT MODEL
+============================================================
+
+Learn opponent behavior during the match.
+
+Track:
+
+- positions
+- aggression
+- site preference
+- utility
+- rotation timing
+- opening duels
+- repeated executes
+- player tendencies
+- clutch behavior
+
+Example:
+
+AWPer:
+
+Window:
+7/10
+
+Connector:
+2/10
+
+Short:
+1/10
+
+Confidence:
+HIGH
+
+Recommendation:
+
+Pressure Window.
+
+============================================================
+28. ECONOMY ENGINE
+============================================================
+
+Track:
+
+team money
+estimated enemy money
+weapons
+armor
+utility
+loss bonus
+buy type
+
+Classify:
+
+FULL BUY
+FORCE BUY
+HALF BUY
+ECO
+ANTI-ECO
+LOW BUY
+SAVE
+
+Economy must affect tactical recommendations.
+
+============================================================
+29. TACTICAL ENGINE
+============================================================
+
+Generate candidate actions:
+
+DEFAULT
+A_EXECUTE
+B_EXECUTE
+MID_CONTROL
+FAST_A
+FAST_B
+SPLIT_A
+SPLIT_B
+ANTI_ECO
+FORCE
+SAVE
+RETREAT
+
+Score candidates using:
+
+- enemy tendencies
+- team strengths
+- player roles
+- map control
+- economy
+- previous rounds
+- score
+- utility
+- timing
+- player performance
+
+Example:
+
+A_EXECUTE: 0.61
+
+B_EXECUTE: 0.74
+
+MID_CONTROL: 0.67
+
+Choose best candidate.
+
+Groq explains the selected action.
+
+============================================================
+30. LIVE RECOMMENDATION
+============================================================
+
+Recommendation must be SHORT.
+
+Example:
+
+AI COACH
+
+NEXT ACTION
+
+TAKE MID CONTROL
+
+ROLE:
+
+ENTRY
+
+POSITION:
+
+SHORT
+
+TIMING:
+
+1:28
+
+UTILITY:
+
+FLASH
+
+WARNING:
+
+AWP WINDOW
+
+WHY:
+
+Enemy AWPer has repeatedly played Window.
+
+Do not display long paragraphs during active gameplay.
+
+============================================================
+31. WEBSOCKET
+============================================================
+
+Create:
+
+/ws
+
+Authenticated connection.
+
+Client:
+
+subscribe to match_id.
+
+Events:
+
+match:update
+round:start
+round:end
+score:update
+player:update
+ai:recommendation
+ai:warning
+ai:analysis
+connection:status
+
+Frontend automatically reconnects.
+
+Use exponential backoff.
+
+If WebSocket unavailable:
+
+REST fallback polling.
+
+============================================================
+32. RENDER FREE
+============================================================
+
+Backend:
+
+Render Free Web Service.
+
+Must listen on:
+
+0.0.0.0
+
+Use:
+
+PORT
+
+Create:
+
+render.yaml
+
+Configure:
+
+buildCommand
+
+startCommand
+
+healthCheckPath
+
+Environment variables.
+
+The backend must survive restart.
+
+No persistent local files.
+
+============================================================
+33. UPTIMEROBOT
+============================================================
+
+Health endpoint:
+
+/health
+
+Expected:
+
+HTTP 200
+
+Response:
+
+{
+  "status": "ok"
+}
+
+No DB-heavy operation.
+
+No AI call.
+
+No FACEIT call.
+
+UptimeRobot can ping this endpoint.
+
+============================================================
+34. NEON DATABASE
+============================================================
+
+Use PostgreSQL.
+
+Create migrations.
+
+Do not use SQLite.
+
+Do not use local database.
+
+Use connection pooling.
+
+Database tables:
+
+users
+faceit_accounts
+players
+teams
+matches
+match_players
+rounds
+player_round_events
+player_statistics
+opponent_patterns
+ai_recommendations
+ai_decisions
+match_analysis
+training_plans
+
+Use indexes on:
+
+telegram_id
+faceit_user_id
+faceit_match_id
+match_id
+round_id
+player_id
+created_at
+
+============================================================
+35. DATABASE MODELS
+============================================================
+
+users:
+
+id
+telegram_id
+telegram_username
+created_at
+updated_at
+
+faceit_accounts:
+
+id
+user_id
+faceit_user_id
+nickname
+access_token
+refresh_token
+expires_at
+created_at
+updated_at
+
+players:
+
+id
+faceit_player_id
+nickname
+country
+avatar
+skill_level
+elo
+
+teams:
+
+id
+faceit_team_id
+name
+
+matches:
+
+id
+faceit_match_id
+game
+competition
+map
+status
+started_at
+finished_at
+team_a_id
+team_b_id
+score_a
+score_b
+created_at
+updated_at
+
+rounds:
+
+id
+match_id
+round_number
+winner
+side
+win_reason
+score_after_round
+created_at
+
+player_round_events:
+
+id
+round_id
+player_id
+event_type
+timestamp
+x
+y
+z
+weapon
+damage
+target_player_id
+metadata_json
+
+player_statistics:
+
+id
+player_id
+match_id
+kills
+deaths
+assists
+adr
+kast
+rating
+opening_kills
+opening_deaths
+utility_damage
+flash_assists
+clutches
+
+opponent_patterns:
+
+id
+match_id
+player_id
+pattern_type
+location
+frequency
+confidence
+sample_size
+updated_at
+
+ai_recommendations:
+
+id
+match_id
+round_id
+player_id
+recommendation_type
+action
+location
+timing
+confidence
+reasoning
+created_at
+
+ai_decisions:
+
+id
+match_id
+round_id
+state_hash
+input_summary
+decision
+confidence
+model
+latency
+created_at
+
+match_analysis:
+
+id
+match_id
+pre_match_analysis
+live_analysis
+post_match_analysis
+created_at
+updated_at
+
+training_plans:
+
+id
+user_id
+match_id
+plan_json
+created_at
+
+============================================================
+36. SECURITY
+============================================================
+
+Never expose secrets.
+
+Environment:
+
+DATABASE_URL
+GROQ_API_KEY
+TELEGRAM_BOT_TOKEN
+TELEGRAM_WEBAPP_URL
+FACEIT_API_KEY
+FACEIT_CLIENT_ID
+FACEIT_CLIENT_SECRET
+FACEIT_REDIRECT_URI
+NODE_ENV
+PORT
+ALLOWED_ORIGINS
+
+Use .env.example.
+
+Never commit .env.
+
+============================================================
+37. API ROUTES
+============================================================
+
+GET /health
+
+GET /api/health
+
+GET /api/me
+
+GET /api/faceit/profile
+
+GET /api/faceit/matches
+
+GET /api/matches/:id
+
+GET /api/matches/:id/state
+
+GET /api/matches/:id/rounds
+
+GET /api/matches/:id/analysis
+
+GET /api/matches/:id/recommendations
+
+GET /api/player/:id/stats
+
+GET /api/coach/current
+
+GET /api/coach/history
+
+POST /api/faceit/connect/start
+
+GET /api/faceit/connect/callback
+
+POST /api/faceit/webhook
+
+POST /api/game-state/events
+
+============================================================
+38. API DESIGN
+============================================================
+
+All API responses:
+
+{
+  "success": true,
+  "data": {}
+}
+
+Errors:
+
+{
+  "success": false,
+  "error": {
+    "code": "...",
+    "message": "..."
+  }
+}
+
+Never expose stack traces in production.
+
+============================================================
+39. ERROR HANDLING
+============================================================
+
+Handle:
+
+FACEIT:
+401
+403
+404
+429
+500
+503
+timeout
+
+GROQ:
+429
+timeout
+invalid JSON
+5xx
+
+NEON:
+timeout
+connection errors
+
+TELEGRAM:
+API failures
+
+Use:
+
+retry
+backoff
+timeouts
+fallback
+logging
+
+Never infinite retry.
+
+============================================================
+40. DEMO MODE
+============================================================
+
+Create a development-only demo mode.
+
+Demo can simulate:
+
+score
+rounds
+kills
+deaths
+economy
+positions
+opponent patterns
+
+UI must show:
+
+DEMO MODE
+
+Production:
+
+DEMO MODE = false
+
+Production cannot accidentally use demo events.
+
+============================================================
+41. POST-MATCH ANALYSIS
+============================================================
+
+Generate:
+
+OVERALL SCORE
+
+Aim
+Positioning
+Decision Making
+Utility
+Trading
+Opening
+Clutch
+Teamplay
+
+Then:
+
+BEST ROUND
+
+WORST ROUND
+
+TOP 3 MISTAKES
+
+TOP 3 GOOD DECISIONS
+
+OPPONENT PATTERNS
+
+TRAINING PLAN
+
+============================================================
+42. PERSONAL TRAINING PLAN
+============================================================
+
+Example:
+
+7 DAY TRAINING
+
+Day 1:
+Opening duel discipline
+
+Day 2:
+Positioning
+
+Day 3:
+Utility timing
+
+Day 4:
+Trading
+
+Day 5:
+Mid control
+
+Day 6:
+Clutch
+
+Day 7:
+Demo review
+
+Training plan must be based on actual match weaknesses.
+
+============================================================
+43. PERFORMANCE
+============================================================
+
+Target:
+
+Normal API:
+<500ms when cached
+
+WebSocket:
+low latency
+
+AI:
+as fast as available
+
+Do not make database queries for every event.
+
+Use:
+
+in-memory active MatchState
+
+Persist important state to Neon.
+
+Remember:
+
+Render filesystem is not persistent.
+
+============================================================
+44. AI MEMORY
+============================================================
+
+Match memory:
+
+current match context.
+
+Long-term player memory:
+
+recurring weaknesses.
+
+Example:
+
+Player repeatedly dies during unsupported entry.
+
+Next match:
+
+AI can recognize:
+
+"Your recent matches show repeated early entry deaths."
+
+Only use real stored statistics.
+
+============================================================
+45. LOGGING
+============================================================
+
+Structured logs:
+
+timestamp
+level
+service
+event
+match_id
+user_id
+round
+duration
+
+Never log:
+
+tokens
+passwords
+API keys
+OAuth secrets
+
+============================================================
+46. TESTING
+============================================================
+
+Create tests for:
+
+Telegram authentication
+
+FACEIT API client
+
+FACEIT OAuth
+
+FACEIT webhook
+
+database repositories
+
+match state engine
+
+round transitions
+
+economy engine
+
+opponent pattern engine
+
+tactical engine
+
+AI JSON validation
+
+WebSocket
+
+API routes
+
+Use mock external services for tests.
+
+============================================================
+47. BUILD CHECK
+============================================================
+
+Before declaring complete:
+
+run:
+
+npm install
+
+npm run lint
+
+npm run typecheck
+
+npm run test
+
+npm run build
+
+Fix ALL errors.
+
+Do not tell me:
+
+"should work"
+
+unless it has actually been tested.
+
+============================================================
+48. GITHUB
+============================================================
+
+Keep repository clean.
+
+Commit logical changes.
+
+Never commit secrets.
+
+README must contain:
+
+- project overview
+- architecture
+- local setup
+- environment variables
+- Neon setup
+- Groq setup
+- FACEIT setup
+- Telegram bot setup
+- Render setup
+- UptimeRobot setup
+- development commands
+- production deployment
+
+============================================================
+49. RENDER DEPLOYMENT
+============================================================
+
+Create:
+
+render.yaml
+
+Configure:
+
+Node service
+
+Build:
+
+npm ci
+npm run build
+
+Start:
+
+npm start
+
+Health:
+
+/health
+
+Environment variables must be configured
+through Render dashboard/environment.
+
+Do not hardcode secrets.
+
+============================================================
+50. FRONTEND DEPLOYMENT
+============================================================
+
+Prefer:
+
+Render Static Site
+
+for React/Vite frontend.
+
+Backend remains:
+
+Render Web Service.
+
+Frontend communicates with backend via HTTPS.
+
+WebSocket uses WSS in production.
+
+============================================================
+51. CORS
+============================================================
+
+Allow only configured origins.
+
+Do not use:
+
+Access-Control-Allow-Origin: *
+
+in production unless absolutely necessary.
+
+Use:
+
+ALLOWED_ORIGINS
+
+============================================================
+52. RATE LIMITING
+============================================================
+
+Implement backend rate limiting.
+
+Protect:
+
+/api/faceit/*
+/api/coach/*
+/api/game-state/events
+
+from abuse.
+
+Do not allow clients to spam AI requests.
+
+============================================================
+53. AI REQUEST QUEUE
+============================================================
+
+Implement lightweight in-process queue/coordinator.
+
+Do not introduce Redis.
+
+Requirements:
+
+- prevent duplicate AI requests
+- cooldown
+- priority
+- timeout
+- retry once
+- fallback
+
+Priority:
+
+1. live round decision
+2. round analysis
+3. pre-match
+4. post-match
+5. background analysis
+
+============================================================
+54. STATE HASHING
+============================================================
+
+Create deterministic state hash.
+
+If state did not meaningfully change:
+
+do not call AI again.
+
+Example:
+
+same round
+same score
+same economy
+same opponent pattern
+same tactical state
+
+→ no new AI request.
+
+============================================================
+55. AI CONTEXT COMPRESSION
+============================================================
+
+Do not send entire match history.
+
+Send:
+
+current state
++
+last few rounds
++
+important patterns
++
+player stats
++
+economy
++
+score
+
+Older rounds should be summarized.
+
+============================================================
+56. LIVE COACHING PRIORITY
+============================================================
+
+The AI must prioritize:
+
+1. survival
+2. objective
+3. teamplay
+4. utility
+5. positioning
+6. timing
+7. aggression
+
+Avoid recommending unnecessary risky plays.
+
+============================================================
+57. MATCH PREDICTION
+============================================================
+
+Prediction must not claim certainty.
+
+Example:
+
+TEAM A:
+64%
+
+TEAM B:
+36%
+
+Confidence:
+MEDIUM
+
+Factors:
+
+- map performance
+- player form
+- ELO
+- recent matches
+- team composition
+
+If insufficient data:
+
+show:
+
+"Insufficient data for reliable prediction."
+
+============================================================
+58. UI LIVE STATES
+============================================================
+
+AI status:
+
+ANALYZING
+
+READY
+
+LIVE
+
+WAITING FOR DATA
+
+RECONNECTING
+
+OFFLINE
+
+ERROR
+
+Do not show stale information as current.
+
+Include timestamp where appropriate.
+
+============================================================
+59. WEBSOCKET RECONNECTION
+============================================================
+
+When disconnected:
+
+RECONNECTING...
+
+Retry:
+
+1s
+2s
+4s
+8s
+16s
+maximum 30s
+
+After reconnect:
+
+request latest match state.
+
+Do not wait only for next event.
+
+============================================================
+60. MOBILE UX
+============================================================
+
+Avoid:
+
+huge tables
+desktop-only layouts
+tiny buttons
+
+Use:
+
+cards
+bottom navigation
+large touch targets
+swipe-friendly UI
+
+Main navigation:
+
+HOME
+MATCH
+COACH
+PROFILE
+
+============================================================
+61. ANIMATION
+============================================================
+
+Use lightweight CSS / Framer Motion only if already
+available and compatible with free architecture.
+
+Animations:
+
+- splash
+- card entrance
+- score update
+- AI thinking
+- live pulse
+- recommendation appearance
+- round transition
+- veto transition
+
+Do not overuse animation.
+
+============================================================
+62. ACCESSIBILITY
+============================================================
+
+Text must remain readable.
+
+Buttons must be touch-friendly.
+
+Do not rely only on color to communicate state.
+
+============================================================
+63. OBSERVABILITY
+============================================================
+
+Health:
+
+/health
+
+Application logs:
+
+Render logs
+
+Errors:
+
+structured logging
+
+AI metrics:
+
+- request count
+- latency
+- success
+- failure
+- 429 count
+
+Do not store sensitive prompts unnecessarily.
+
+============================================================
+64. IMPORTANT FACEIT LIMITATION
+============================================================
+
+Do NOT assume FACEIT API/webhooks provide:
+
+live player XYZ positions
+every kill
+every shot
+every utility event
+every frame
+every second of CS2 gameplay
+
+FACEIT platform information and CS2 game-state information
+are separate.
+
+Implement an abstraction:
+
+GameStateProvider
+
+so a legitimate CS2 game-state source can be connected.
+
+If the live game-state source is not available:
+
+the app still provides:
+
+FACEIT match information
+pre-match analysis
+available match status
+available statistics
+post-match analysis when data becomes available
+
+Do not fake live coaching.
+
+============================================================
+65. GAME-STATE PROVIDER
+============================================================
+
+Create:
+
+packages/game-state/
+
+GameStateProvider.ts
+
+GameStateNormalizer.ts
+
+GameEventBus.ts
+
+MatchStateEngine.ts
+
+RoundEngine.ts
+
+Provider implementations:
+
+FaceitMatchProvider.ts
+
+CS2GameStateProvider.ts
+
+The CS2 provider must be replaceable.
+
+Do not tightly couple tactical engine
+to a specific game-data source.
+
+============================================================
+66. FUTURE DEMO ANALYSIS
+============================================================
+
+When FACEIT demo becomes available:
+
+match_demo_ready
+
+store metadata.
+
+If demo download/access is available to the application:
+
+process demo asynchronously.
+
+Extract:
+
+rounds
+kills
+deaths
+positions
+utility
+damage
+economy
+timing
+player statistics
+
+Then feed into:
+
+RoundEngine
+StatisticsEngine
+OpponentModel
+PostMatchAnalysis
+
+Do not pretend demo data exists before it is available.
+
+============================================================
+67. SECURITY OF PLAYER DATA
+============================================================
+
+Use minimum necessary data.
+
+Do not expose private OAuth tokens.
+
+Encrypt sensitive tokens at rest if stored.
+
+Prefer short-lived sessions.
+
+Never send OAuth tokens to Mini App.
+
+============================================================
+68. DATABASE TRANSACTIONS
+============================================================
+
+Use transactions for:
+
+match creation
+round completion
+webhook state changes
+OAuth account linking
+
+Make event processing idempotent.
+
+============================================================
+69. CLEAN ARCHITECTURE
+============================================================
+
+Separate:
+
+Routes
+
+Services
+
+Repositories
+
+Providers
+
+AI
+
+Tactical Engine
+
+Database
+
+WebSocket
+
+Frontend
+
+Do not put business logic inside React components.
+
+Do not put AI logic inside HTTP route handlers.
+
+============================================================
+70. FINAL ACCEPTANCE TEST
+============================================================
+
+The project is DONE only when:
+
+[ ] Telegram bot exists
+
+[ ] /start works
+
+[ ] Mini App opens
+
+[ ] Telegram initData validation works
+
+[ ] FACEIT OAuth works
+
+[ ] FACEIT account can be connected
+
+[ ] FACEIT profile loads
+
+[ ] FACEIT matches load
+
+[ ] Match status updates
+
+[ ] Webhook endpoint works
+
+[ ] Veto UI exists
+
+[ ] Veto never shows fake information
+
+[ ] Pre-match AI analysis works
+
+[ ] Groq integration works
+
+[ ] AI JSON validation works
+
+[ ] Groq failure fallback works
+
+[ ] Match state engine works
+
+[ ] Round engine works
+
+[ ] Tactical engine works
+
+[ ] Opponent model works
+
+[ ] WebSocket works
+
+[ ] Live UI works when real game-state data is available
+
+[ ] UI clearly indicates when live game-state is unavailable
+
+[ ] Post-match analysis works
+
+[ ] Training plan works
+
+[ ] Neon database works
+
+[ ] Render deployment configuration works
+
+[ ] Health endpoint works
+
+[ ] UptimeRobot endpoint works
+
+[ ] .env.example exists
+
+[ ] No secrets in GitHub
+
+[ ] Production cannot accidentally use demo data
+
+[ ] npm run build succeeds
+
+[ ] npm run test succeeds
+
+[ ] npm run typecheck succeeds
+
+[ ] README is complete
+
+============================================================
+71. FIRST ACTION
+============================================================
+
+IMPORTANT:
+
+Do NOT immediately start coding.
+
+First inspect the entire repository.
+
+Do not modify files during the first inspection.
+
+Return a concise audit:
+
+1. Current project structure
+2. Existing frontend
+3. Existing backend
+4. Existing database
+5. Existing Telegram code
+6. Existing FACEIT code
+7. Existing AI code
+8. Existing deployment configuration
+9. What is working
+10. What is broken
+11. What is missing
+12. What must be implemented first
+
+Then provide:
+
+FINAL IMPLEMENTATION PLAN
+
+After the audit, begin implementation.
+
+============================================================
+72. IMPLEMENTATION MODE
+============================================================
+
+Once implementation begins:
+
+DO NOT stop after writing a plan.
+
+Actually:
+
+- create files
+- modify files
+- install dependencies
+- implement features
+- run tests
+- run typecheck
+- run build
+- fix errors
+- inspect logs
+- verify routes
+- verify database
+- verify environment variables
+- verify deployment configuration
+
+When a task is complete:
+
+show:
+
+IMPLEMENTED
+TESTED
+REMAINING
+
+Do not claim success without testing.
+
+============================================================
+73. FINAL RULE
+============================================================
+
+The goal is NOT:
+
+"Create a beautiful CS2 website."
+
+The goal is:
+
+"Create a real Telegram-based CS2 AI Coach that
+connects to FACEIT, automatically detects matches,
+analyzes available data, learns opponent behavior,
+and provides adaptive tactical coaching."
+
+Build the smallest real working version first.
+
+Then expand.
+
+Never sacrifice correctness for fake functionality.
+
+============================================================
+END
+============================================================

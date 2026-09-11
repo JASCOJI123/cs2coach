@@ -1,0 +1,21 @@
+{
+  "name": "@cs2coach/bot",
+  "version": "0.0.1",
+  "private": true,
+  "type": "commonjs",
+  "main": "dist/bot.js",
+  "types": "dist/bot.d.ts",
+  "scripts": {
+    "build": "tsc -b",
+    "start": "node dist/bot.js",
+    "dev": "tsx src/bot.ts"
+  },
+  "dependencies": {
+    "@cs2coach/shared": "*",
+    "@cs2coach/database": "*",
+    "grammy": "^1.34.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "@cs2coach/game-state",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "dependencies": {
+    "@cs2coach/shared": "*",
+    "@cs2coach/faceit": "*"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b --pretty false"
+  }
+}

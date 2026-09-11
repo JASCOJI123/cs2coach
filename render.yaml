@@ -1,0 +1,86 @@
+# Render Blueprint for CS2 AI COACH (spec §68–§70).
+#
+# Free-tier reality: a single free Render account can run one free Web Service,
+# one free Static Site, and one free Cron/Background Worker. Deploy the API and
+# the bot as Web Services first, then the frontend Static Site once free slots
+# allow — the frontend also runs fine locally pointed at the API's public URL.
+#
+#   providers: render.cloud
+#   Postgres: use Neon Free (not listed here — set DATABASE_URL in the env group).
+#
+services:
+  - type: web
+    name: cs2coach-api
+    runtime: node
+    region: frankfurt
+    plan: free
+    rootDir: .
+    healthCheckPath: /health
+    buildCommand: npm ci && npm run build
+    startCommand: node apps/api/dist/server.js
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: PORT
+        value: 8080
+      - key: ALLOWED_ORIGINS
+        sync: false # set in dashboard: https://cs2coach-frontend.onrender.com,https://your-mini-app-domain
+      - key: SESSION_SECRET
+        sync: false # strong random value
+      - key: DATABASE_URL
+        sync: false # Neon Free connection string (sslmode=require)
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_WEBAPP_URL
+        sync: false
+      - key: FACEIT_API_KEY
+        sync: false
+      - key: FACEIT_CLIENT_ID
+        sync: false
+      - key: FACEIT_CLIENT_SECRET
+        sync: false
+      - key: FACEIT_REDIRECT_URI
+        sync: false
+      - key: FACEIT_WEBHOOK_SECRET
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+
+  - type: web
+    name: cs2coach-bot
+    runtime: node
+    region: frankfurt
+    plan: free
+    rootDir: .
+    buildCommand: npm ci && npm run build
+    startCommand: node bot/dist/bot.js
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_WEBAPP_URL
+        sync: false
+
+  - type: static
+    name: cs2coach-frontend
+    rootDir: apps/web
+    buildCommand: npm ci && npm run build:web
+    publishPath: dist
+    headers:
+      - path: /*
+        name: X-Frame-Options
+        value: SAMEORIGIN
+    envVars:
+      - key: VITE_API_URL
+        sync: false # https://cs2coach-api.onrender.com
+
+# UptimeRobot (spec §69): add an HTTPS monitor against
+# https://cs2coach-api.onrender.com/health every 5 min so the free API sleeps
+# wake up and stays warm.
