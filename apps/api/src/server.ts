@@ -45,6 +45,25 @@ export async function buildServer(config: AppConfig = createAppConfig()): Promis
   await app.register(websocket);
 
   // ── Routes ──────────────────────────────────────────────────────────────────
+  // Root route: friendly service info so / is not a bare 404 in a browser.
+  app.get('/', async (_request, reply) => {
+    return reply.send({
+      ok: true,
+      service: 'cs2coach-api',
+      description: 'CS2 AI COACH backend — Telegram Mini App API',
+      version: '0.1.0',
+      endpoints: {
+        health: '/health',
+        apiHealth: '/api/health',
+        telegramAuth: '/api/auth/telegram',
+        faceitAuth: '/api/auth/faceit',
+        matches: '/api/matches',
+        gameState: '/api/game-state',
+        demo: '/api/demo',
+      },
+      dataPolicy: 'No fake data — unavailable state is shown as is (spec §12)',
+    });
+  });
   await healthRoutes(app, config);
   await telegramAuthRoutes(app, config);
   await faceitAuthRoutes(app, config);
