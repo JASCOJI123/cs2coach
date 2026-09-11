@@ -9,8 +9,12 @@
 #
 #   ● Frontend (Static Site) — create manually:
 #       New + → Static Site → GitHub → repo: JASCOJI123/cs2coach
-#       Root Dir: apps/web | Build: npm ci --include=dev && npm run build | Publish: dist
+#       Root Dir: .   (monorepo — lockfile & workspaces live at the root)
+#       Build:  npm ci --include=dev && npm run build && npm run build:web
+#       Publish: apps/web/dist
+#       Env var: VITE_API_URL=https://cs2coach-api.onrender.com   (build-time)
 #       URL: https://cs2coach-frontend.onrender.com  →  set ALLOWED_ORIGINS
+#                (and TELEGRAM_WEBAPP_URL for the Mini App host)
 #
 #   ● Telegram bot — cannot run on Render Free (no worker, single web slot
 #     taken by the API). Run it locally (npm run dev:bot) or on another host.
