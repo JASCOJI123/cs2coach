@@ -1,12 +1,16 @@
 # Render Blueprint for CS2 AI COACH (spec §68–§70).
 #
-# Free-tier reality: a single free Render account can run one free Web Service,
-# one free Static Site, and one free Cron/Background Worker. Deploy the API and
-# the bot as Web Services first, then the frontend Static Site once free slots
-# allow — the frontend also runs fine locally pointed at the API's public URL.
+# Free-tier allocation:
+#   1 × Web Service    → cs2coach-api (Fastify backend)
+#   1 × Background Worker → cs2coach-bot (grammY long-polling)
+#   Static Site        → cs2coach-frontend (created manually in dashboard)
 #
-#   providers: render.cloud
-#   Postgres: use Neon Free (not listed here — set DATABASE_URL in the env group).
+# The frontend is NOT in this Blueprint because Render Blueprints don't support
+# the static_site type. Create it manually:
+#   New + → Static Site → GitHub → repo: JASCOJI123/cs2coach
+#   Root Dir: apps/web | Build: npm ci && npm run build | Publish: dist
+#
+#   Postgres: Neon Free (set DATABASE_URL in the API env group).
 #
 services:
   - type: web
@@ -27,7 +31,7 @@ services:
       - key: PORT
         value: 8080
       - key: ALLOWED_ORIGINS
-        sync: false # set in dashboard: https://cs2coach-frontend.onrender.com,https://your-mini-app-domain
+        sync: false # set in dashboard: https://cs2coach-frontend.onrender.com
       - key: SESSION_SECRET
         sync: false # strong random value
       - key: DATABASE_URL
@@ -49,7 +53,7 @@ services:
       - key: GROQ_API_KEY
         sync: false
 
-  - type: web
+  - type: worker
     name: cs2coach-bot
     runtime: node
     region: frankfurt
@@ -68,19 +72,6 @@ services:
       - key: TELEGRAM_WEBAPP_URL
         sync: false
 
-  - type: static_site
-    name: cs2coach-frontend
-    rootDir: apps/web
-    buildCommand: npm ci && npm run build
-    publishPath: dist
-    headers:
-      - path: /*
-        name: X-Frame-Options
-        value: SAMEORIGIN
-    envVars:
-      - key: VITE_API_URL
-        sync: false # https://cs2coach-api.onrender.com
-
 # UptimeRobot (spec §69): add an HTTPS monitor against
-# https://cs2coach-api.onrender.com/health every 5 min so the free API sleeps
-# wake up and stays warm.
+# https://cs2coach-api.onrender.com/health every 5 min so the free API
+# stays warm and doesn't sleep after 15 min of inactivity.
