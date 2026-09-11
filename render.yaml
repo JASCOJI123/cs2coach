@@ -9,7 +9,7 @@
 #
 #   ● Frontend (Static Site) — create manually:
 #       New + → Static Site → GitHub → repo: JASCOJI123/cs2coach
-#       Root Dir: apps/web | Build: npm ci && npm run build | Publish: dist
+#       Root Dir: apps/web | Build: npm ci --include=dev && npm run build | Publish: dist
 #       URL: https://cs2coach-frontend.onrender.com  →  set ALLOWED_ORIGINS
 #
 #   ● Telegram bot — cannot run on Render Free (no worker, single web slot
@@ -25,7 +25,10 @@ services:
     plan: free
     rootDir: .
     healthCheckPath: /health
-    buildCommand: npm ci && npm run build
+    # --include=dev is REQUIRED: NODE_ENV=production (set below) makes npm omit
+    # devDependencies (typescript, @types/node, vite, tsx…), and the whole build
+    # is devDep-driven — otherwise tsc finds no @types and the build fails.
+    buildCommand: npm ci --include=dev && npm run build
     startCommand: node apps/api/dist/server.js
     autoDeploy: true
     envVars:
