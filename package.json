@@ -23,7 +23,7 @@
     "dev:bot": "tsx watch bot/src/bot.ts",
     "dev:web": "npm run dev --workspace @cs2coach/web",
     "build:web": "npm run build --workspace @cs2coach/web",
-    "start": "node apps/api/dist/server.js"
+    "start": "npm run build && node apps/api/dist/server.js"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
