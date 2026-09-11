@@ -68,7 +68,7 @@ services:
       - key: TELEGRAM_WEBAPP_URL
         sync: false
 
-  - type: static
+  - type: static_site
     name: cs2coach-frontend
     rootDir: apps/web
     buildCommand: npm ci && npm run build:web
