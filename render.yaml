@@ -71,7 +71,7 @@ services:
   - type: static_site
     name: cs2coach-frontend
     rootDir: apps/web
-    buildCommand: npm ci && npm run build:web
+    buildCommand: npm ci && npm run build
     publishPath: dist
     headers:
       - path: /*
