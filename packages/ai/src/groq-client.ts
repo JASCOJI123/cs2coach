@@ -47,8 +47,10 @@ export class GroqClient {
   private readonly logger: Logger;
 
   constructor(opts: GroqClientOptions, logger?: Logger) {
-    if (!opts.apiKey) throw new AppError(codes.missingEnv, 'GROQ_API_KEY is required');
-    this.apiKey = opts.apiKey;
+    // A missing/placeholder key is allowed at construction so the app boots and
+    // the deterministic tactical engine takes over (spec §16, §31 fallback);
+    // `available` is false in that case and no request is ever made.
+    this.apiKey = opts.apiKey ?? '';
     this.baseUrl = opts.baseUrl ?? 'https://api.groq.com/openai/v1';
     this.model = opts.model ?? 'llama-3.3-70b-versatile';
     this.timeoutMs = opts.timeoutMs ?? 15_000;
