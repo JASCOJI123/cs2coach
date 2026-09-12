@@ -23,7 +23,7 @@ import {
   randomOAuthState,
 } from '@cs2coach/faceit';
 import { AiCoordinator, GroqClient, TacticalAIValidator } from '@cs2coach/ai';
-import type { OAuthConfig, OAuthStatePayload, TokenSet } from '@cs2coach/faceit';
+import type { OAuthConfig, OAuthStart, TokenSet } from '@cs2coach/faceit';
 import {
   MatchStateEngine,
   OpponentModel,
@@ -40,11 +40,11 @@ export interface AppConfig {
   faceitClient: FaceitApiClient;
   faceitOAuth: {
     oauthConfig: OAuthConfig;
-    buildAuthorizeUrl: (config: OAuthConfig, state: string) => string;
-    exchangeCodeForToken: (code: string) => Promise<TokenSet>;
+    buildAuthorizeUrl: (config: OAuthConfig, state: string, codeChallenge?: string) => string;
+    exchangeCodeForToken: (code: string, codeVerifier?: string) => Promise<TokenSet>;
     refreshAccessToken: (refreshToken: string) => Promise<TokenSet>;
     extractFaceitUserIdFromIdToken: (idToken: string) => string | null;
-    randomOAuthState: (ttlMs?: number) => { state: string; payload: OAuthStatePayload };
+    randomOAuthState: (ttlMs?: number) => OAuthStart;
   };
   opponentModel: OpponentModel;
   matchStateEngine: MatchStateEngine;
@@ -66,7 +66,6 @@ export function createAppConfig(): AppConfig {
   const env = loadEnv();
   const logger = createLogger('api');
 
-  // ── Database ──────────────────────────────────────────────────────────────
   const dbUrl = env.databaseUrl;
   if (!dbUrl) logger.warn('no_database_url', { msg: 'DATABASE_URL not set — DB calls will fail' });
   const db = getDb(dbUrl ?? 'postgresql://localhost:5432/cs2coach');
@@ -75,7 +74,6 @@ export function createAppConfig(): AppConfig {
     catch (err) { logger.warn('db_ping_failed', { error: (err as Error).message }); throw err; }
   };
 
-  // ── FACEIT ────────────────────────────────────────────────────────────────
   const faceitClient = new FaceitApiClient({
     apiKey: env.faceitApiKey ?? '',
     baseUrl: env.faceitDataBaseUrl,
@@ -91,13 +89,12 @@ export function createAppConfig(): AppConfig {
   const faceitOAuth = {
     oauthConfig,
     buildAuthorizeUrl,
-    exchangeCodeForToken: (code: string) => exchangeCodeForToken(oauthConfig, code),
+    exchangeCodeForToken: (code: string, codeVerifier?: string) => exchangeCodeForToken(oauthConfig, code, codeVerifier),
     refreshAccessToken: (refreshToken: string) => refreshAccessToken(oauthConfig, refreshToken),
     extractFaceitUserIdFromIdToken,
     randomOAuthState,
   };
 
-  // ── Game-state engines ────────────────────────────────────────────────────
   const opponentModel = new OpponentModel();
   const matchStateEngine = new MatchStateEngine({
     learn: (state, event) => opponentModel.learn(state, event),
@@ -109,7 +106,6 @@ export function createAppConfig(): AppConfig {
   const faceitMatchProvider = new FaceitMatchProvider(faceitClient, logger);
   const cs2GameStateProvider = new CS2GameStateProvider(logger);
 
-  // Demo provider only exists in non-production
   let demoProvider: DemoGameStateProvider | null = null;
   if (env.isDemoMode) {
     try {
@@ -119,7 +115,6 @@ export function createAppConfig(): AppConfig {
     }
   }
 
-  // ── Groq + AI queue ──────────────────────────────────────────────────────
   const groqClient = new GroqClient(
     {
       apiKey: env.groqApiKey ?? '',
@@ -143,10 +138,6 @@ export function createAppConfig(): AppConfig {
     });
   }
 
-  // ── Session helpers ───────────────────────────────────────────────────────
-  // iat/exp are stored in epoch MILLISECONDS, matching what verifySession
-  // compares against (Date.now()). Earlier seconds/ms mismatch made every
-  // token look expired immediately.
   const sessionSign = (claims: Omit<SessionClaims, 'iat' | 'exp'>) => {
     const now = Date.now();
     return signSession(env.sessionSecret, { ...claims, iat: now, exp: now + env.sessionTtlMs });
