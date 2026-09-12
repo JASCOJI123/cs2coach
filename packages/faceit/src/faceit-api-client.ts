@@ -13,7 +13,6 @@ import type {
   FaceitPlayerCore,
 } from './types';
 
-/** Body payload accepted by `fetch` — avoids depending on DOM lib types. */
 export type FetchBody = string | URLSearchParams | null;
 
 interface CacheEntry {
@@ -137,9 +136,6 @@ export class FaceitApiClient {
       }
     }
 
-    /** Body payload accepted by `fetch` — avoids depending on DOM lib types. */
-    type FetchBody = string | URLSearchParams | null;
-
     let lastError: unknown;
     for (let attempt = 0; attempt <= this.maxRetries; attempt += 1) {
       const started = Date.now();
@@ -178,7 +174,7 @@ export class FaceitApiClient {
         return parsed;
       } catch (err) {
         lastError = err;
-        if (err instanceof AppError) throw err; // already mapped
+        if (err instanceof AppError) throw err;
         const timeoutish = err instanceof Error && err.name === 'TimeoutError';
         const delay = Math.min(500 * 2 ** attempt, 4_000);
         this.logger.warn('faceit_network_error', { path, attempt, error: timeoutish ? 'timeout' : err instanceof Error ? err.message : String(err) });
@@ -223,10 +219,8 @@ export class FaceitApiClient {
     return 'FACEIT_ERROR';
   }
 
-  // ── typed endpoints ────────────────────────────────────────────────────────
-
-  getPlayerByNickname(nickname: string): Promise<FaceitPlayerCore> {
-    return this.get<FaceitPlayerCore>(`/players`, { nickname });
+  getPlayerByNickname(nickname: string, game = 'cs2'): Promise<FaceitPlayerCore> {
+    return this.get<FaceitPlayerCore>('/players', { nickname, game });
   }
 
   getPlayerById(playerId: string): Promise<FaceitPlayerCore> {
