@@ -17,7 +17,8 @@ import { getDb, closeDb, findUserByTelegramId, findFaceitAccountByUserId, listMa
 
 const logger: Logger = createLogger('bot');
 
-const DEFAULT_WEBAPP_URL = 'https://jascoji123.github.io/cs2coach/';
+// v2 is an intentional cache-busting path for Telegram Mini App WebViews.
+const DEFAULT_WEBAPP_URL = 'https://jascoji123.github.io/cs2coach/v2/';
 
 function startHealthServer(port: number): Server {
   const server = createServer((req, res) => {
@@ -59,7 +60,7 @@ export async function startBot(): Promise<void> {
 
   // Telegram appends its own `?startapp=` when a user taps a web_app button;
   // pre-adding a query param here makes some WebViews choke on the URL and show
-  // "load failed". Keep the button URL clean.
+  // "load failed". Keep the button URL clean; the cache-busting is done by path.
   const openCoachKeyboard = () =>
     new InlineKeyboard().webApp('🎮 OPEN AI COACH', webappUrl);
 
