@@ -48,12 +48,15 @@ export function randomOAuthState(ttlMs = 10 * 60_000): OAuthStart {
 
 /** Build the start URL for the FACEIT authorization screen. */
 export function buildAuthorizeUrl(config: OAuthConfig, state: string, codeChallenge?: string): string {
+  // FACEIT publishes these four scopes; offline_access is not supported by the
+  // current OpenID configuration and can leave the consent flow in a broken
+  // state. Refresh tokens, when issued by FACEIT, are handled server-side.
   const params = new URLSearchParams({
     response_type: 'code',
     client_id: config.clientId,
     redirect_uri: config.redirectUri,
     state,
-    scope: 'openid profile email offline_access',
+    scope: 'openid profile email',
   });
   if (codeChallenge) {
     params.set('code_challenge', codeChallenge);
