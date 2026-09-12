@@ -19,11 +19,12 @@ import {
   buildAuthorizeUrl,
   exchangeCodeForToken,
   refreshAccessToken,
+  getUserInfo,
   extractFaceitUserIdFromIdToken,
   randomOAuthState,
 } from '@cs2coach/faceit';
 import { AiCoordinator, GroqClient, TacticalAIValidator } from '@cs2coach/ai';
-import type { OAuthConfig, OAuthStart, TokenSet } from '@cs2coach/faceit';
+import type { OAuthConfig, OAuthStart, TokenSet, FaceitUserInfo } from '@cs2coach/faceit';
 import {
   MatchStateEngine,
   OpponentModel,
@@ -43,6 +44,7 @@ export interface AppConfig {
     buildAuthorizeUrl: (config: OAuthConfig, state: string, codeChallenge?: string) => string;
     exchangeCodeForToken: (code: string, codeVerifier?: string) => Promise<TokenSet>;
     refreshAccessToken: (refreshToken: string) => Promise<TokenSet>;
+    getUserInfo: (accessToken: string) => Promise<FaceitUserInfo>;
     extractFaceitUserIdFromIdToken: (idToken: string) => string | null;
     randomOAuthState: (ttlMs?: number) => OAuthStart;
   };
@@ -91,6 +93,7 @@ export function createAppConfig(): AppConfig {
     buildAuthorizeUrl,
     exchangeCodeForToken: (code: string, codeVerifier?: string) => exchangeCodeForToken(oauthConfig, code, codeVerifier),
     refreshAccessToken: (refreshToken: string) => refreshAccessToken(oauthConfig, refreshToken),
+    getUserInfo: (accessToken: string) => getUserInfo(oauthConfig, accessToken),
     extractFaceitUserIdFromIdToken,
     randomOAuthState,
   };
