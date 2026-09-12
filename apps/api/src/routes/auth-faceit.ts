@@ -2,7 +2,6 @@ import type { FastifyInstance } from 'fastify';
 import { randomBytes } from 'node:crypto';
 import { AppError, codes, encryptSecret, serializeEncrypted } from '@cs2coach/shared';
 import {
-  findFaceitAccountByFaceitUserId,
   findFaceitAccountByUserId,
   upsertFaceitAccountByUser,
   deleteFaceitAccount,
@@ -32,7 +31,10 @@ export async function faceitAuthRoutes(app: FastifyInstance, config: AppConfig):
     const { state, codeVerifier, codeChallenge } = config.faceitOAuth.randomOAuthState(PENDING_TTL_MS);
     pendingStates.set(state, { userId: user.userId, exp: Date.now() + PENDING_TTL_MS, codeVerifier });
     const url = config.faceitOAuth.buildAuthorizeUrl(config.faceitOAuth.oauthConfig, state, codeChallenge);
-    config.logger.info('faceit_oauth_started', { userId: user.userId, redirectHost: new URL(config.faceitOAuth.oauthConfig.redirectUri).host });
+    config.logger.info('faceit_oauth_started', {
+      userId: user.userId,
+      redirectHost: new URL(config.faceitOAuth.oauthConfig.redirectUri).host,
+    });
     return reply.send({ ok: true, data: { url } });
   });
 
@@ -84,12 +86,12 @@ export async function faceitAuthRoutes(app: FastifyInstance, config: AppConfig):
     let country: string | null = null;
     let skillLevel: number | null = null;
     let elo: number | null = null;
+
     try {
-      // OAuth userinfo provides the authenticated FACEIT nickname. Resolve the
-      // Data API player by nickname instead of assuming the OAuth subject is a
-      // Data API player_id; FACEIT can expose different identifiers here.
+      // FACEIT Data API documents nickname + game on GET /players.
+      // Passing CS2 explicitly avoids the ambiguous game-less lookup.
       const profile = nickname
-        ? await config.faceitClient.getPlayerByNickname(nickname)
+        ? await config.faceitClient.getPlayerByNickname(nickname, 'cs2')
         : await config.faceitClient.getPlayerById(faceitUserId);
       nickname = profile.nickname ?? nickname;
       avatar = profile.avatar ?? null;
@@ -99,28 +101,40 @@ export async function faceitAuthRoutes(app: FastifyInstance, config: AppConfig):
       faceitUserId = profile.player_id || faceitUserId;
       config.logger.info('faceit_profile_loaded', { hasNickname: Boolean(nickname) });
     } catch (err) {
-      config.logger.warn('faceit_profile_load_failed', { error: err instanceof Error ? err.message : String(err) });
+      // Profile enrichment is optional. OAuth itself already succeeded, so do
+      // not turn a Data API 404 into a failed account-linking callback.
+      config.logger.warn('faceit_profile_load_failed', {
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
 
-    const account = await findFaceitAccountByFaceitUserId(config.db, faceitUserId);
+    const existing = await findFaceitAccountByUserId(config.db, pending.userId);
     const accessTokenEnc = serializeEncrypted(encryptSecret(config.env.sessionSecret, tokens.accessToken));
     const refreshTokenEnc = tokens.refreshToken
       ? serializeEncrypted(encryptSecret(config.env.sessionSecret, tokens.refreshToken))
-      : null;
-    const existing = (await findFaceitAccountByUserId(config.db, pending.userId)) ?? (account ?? null);
+      : existing?.refreshToken ?? null;
 
-    await upsertFaceitAccountByUser(config.db, {
-      userId: existing?.userId ?? pending.userId,
-      faceitUserId,
-      nickname: nickname || (existing?.nickname ?? faceitUserId),
-      avatar: avatar ?? existing?.avatar ?? null,
-      country: country ?? existing?.country ?? null,
-      skillLevel: skillLevel ?? existing?.skillLevel ?? null,
-      elo: elo ?? existing?.elo ?? null,
-      accessToken: accessTokenEnc,
-      refreshToken: refreshTokenEnc,
-      expiresAtMs: tokens.expiresAtMs,
-    });
+    try {
+      await upsertFaceitAccountByUser(config.db, {
+        userId: pending.userId,
+        faceitUserId,
+        nickname: nickname || existing?.nickname || faceitUserId,
+        avatar: avatar ?? existing?.avatar ?? null,
+        country: country ?? existing?.country ?? null,
+        skillLevel: skillLevel ?? existing?.skillLevel ?? null,
+        elo: elo ?? existing?.elo ?? null,
+        accessToken: accessTokenEnc,
+        refreshToken: refreshTokenEnc,
+        expiresAtMs: tokens.expiresAtMs,
+      });
+    } catch (err) {
+      config.logger.error('faceit_account_save_failed', {
+        userId: pending.userId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      throw err;
+    }
+
     config.logger.info('faceit_account_saved', { userId: pending.userId });
 
     const handoff = createHandoff(pending.userId);
