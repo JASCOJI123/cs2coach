@@ -143,9 +143,12 @@ export function createAppConfig(): AppConfig {
   }
 
   // ── Session helpers ───────────────────────────────────────────────────────
+  // iat/exp are stored in epoch MILLISECONDS, matching what verifySession
+  // compares against (Date.now()). Earlier seconds/ms mismatch made every
+  // token look expired immediately.
   const sessionSign = (claims: Omit<SessionClaims, 'iat' | 'exp'>) => {
     const now = Date.now();
-    return signSession(env.sessionSecret, { ...claims, iat: Math.floor(now / 1000), exp: Math.floor((now + env.sessionTtlMs) / 1000) });
+    return signSession(env.sessionSecret, { ...claims, iat: now, exp: now + env.sessionTtlMs });
   };
   const sessionVerify = (token: string) => verifySession(env.sessionSecret, token);
 
