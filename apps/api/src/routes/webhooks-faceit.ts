@@ -11,7 +11,7 @@ function findMatchId(body: Record<string, unknown>): string | null {
   const direct = [payload?.match_id, payload?.matchId, body.match_id, body.matchId];
   return direct.find((value): value is string => typeof value === 'string' && value.length > 0) ?? null;
 }
-function rosterForFaction(faction: FaceitFaction): FaceitFaction['members'] { return Array.isArray(faction.roster) ? faction.roster : faction.members; }
+function rosterForFaction(faction: FaceitFaction): FaceitFaction['members'] { return faction.roster ?? faction.members; }
 
 export async function faceitWebhookRoutes(app: FastifyInstance, config: AppConfig): Promise<void> {
   app.post('/api/webhooks/faceit', async (request, reply) => {
@@ -48,7 +48,9 @@ export async function faceitWebhookRoutes(app: FastifyInstance, config: AppConfi
 
     const match = await upsertMatchFromFaceit(config.db, { faceitMatchId: detail.match_id, game: detail.game ?? 'cs2', competition: detail.competition_name ?? detail.competition_id ?? null, map: detail.details?.map ?? null, status: normalized.status, startedAtMs: detail.started_at ? detail.started_at * 1000 : null, finishedAtMs: detail.finished_at ? detail.finished_at * 1000 : null, scoreA: detail.results?.score?.faction1 ?? 0, scoreB: detail.results?.score?.faction2 ?? 0 });
     for (let index = 0; index < teams.length; index += 1) {
-      for (const member of rosterForFaction(teams[index])) {
+      const faction = teams[index];
+      if (!faction) continue;
+      for (const member of rosterForFaction(faction)) {
         const player = await upsertPlayer(config.db, { faceitPlayerId: member.player_id, nickname: member.nickname, avatar: member.avatar, skillLevel: member.skill_level });
         await addMatchPlayer(config.db, { matchId: match.id, playerId: player.id, team: index === 1 ? 'B' : 'A' });
       }
