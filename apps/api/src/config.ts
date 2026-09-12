@@ -62,6 +62,14 @@ export interface AppConfig {
 
 let singleton: AppConfig | null = null;
 
+function canonicalFaceitRedirectUri(configured?: string, webappUrl?: string): string {
+  const fallback = `${webappUrl ?? 'http://localhost:5173'}/faceit/callback`;
+  const value = configured?.trim() || fallback;
+  // The production Render service has one canonical hostname. Normalize the
+  // old typo so a stale Render env value can never send FACEIT back to a dead host.
+  return value.replace('cs2-coach-api.onrender.com', 'cs2coach-api.onrender.com');
+}
+
 export function createAppConfig(): AppConfig {
   if (singleton) return singleton;
 
@@ -84,7 +92,7 @@ export function createAppConfig(): AppConfig {
   const oauthConfig: OAuthConfig = {
     clientId: env.faceitClientId ?? '',
     clientSecret: env.faceitClientSecret ?? '',
-    redirectUri: env.faceitRedirectUri ?? `${env.telegramWebappUrl ?? 'http://localhost:5173'}/faceit/callback`,
+    redirectUri: canonicalFaceitRedirectUri(env.faceitRedirectUri, env.telegramWebappUrl),
     authBaseUrl: env.faceitAuthBaseUrl,
     authorizeBaseUrl: env.faceitAuthorizeBaseUrl,
   };
