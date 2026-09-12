@@ -4,10 +4,11 @@ export {
   buildAuthorizeUrl,
   exchangeCodeForToken,
   refreshAccessToken,
+  getUserInfo,
   extractFaceitUserIdFromIdToken,
   randomOAuthState,
 } from './oauth';
-export type { OAuthConfig, TokenSet, OAuthStatePayload, OAuthStart } from './oauth';
+export type { OAuthConfig, TokenSet, OAuthStatePayload, OAuthStart, FaceitUserInfo } from './oauth';
 export {
   SUPPORTED_EVENTS,
   isSupportedEvent,
