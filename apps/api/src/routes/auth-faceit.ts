@@ -106,14 +106,14 @@ export async function faceitAuthRoutes(app: FastifyInstance, config: AppConfig):
     let skillLevel: number | null = null;
     let elo: number | null = null;
     try {
-      const profile = nickname ? await config.faceitClient.getPlayerByNickname(nickname, 'cs2') : await config.faceitClient.getPlayerById(faceitUserId);
+      const profile = await config.faceitClient.resolvePlayer(faceitUserId, userInfoNickname, 'cs2');
       nickname = profile.nickname ?? nickname;
       avatar = profile.avatar ?? null;
       country = profile.country ?? null;
       skillLevel = profile.games?.cs2?.skill_level ?? null;
       elo = profile.games?.cs2?.faceit_elo ?? null;
       faceitUserId = profile.player_id || faceitUserId;
-      config.logger.info('faceit_profile_loaded', { hasNickname: Boolean(nickname) });
+      config.logger.info('faceit_profile_loaded', { hasNickname: Boolean(nickname), resolvedPlayerId: Boolean(profile.player_id) });
     } catch (err) {
       config.logger.warn('faceit_profile_load_failed', { error: err instanceof Error ? err.message : String(err) });
     }
