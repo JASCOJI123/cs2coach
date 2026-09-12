@@ -13,11 +13,24 @@ export default function Home() {
   const [matches, setMatches] = useState<MatchLite[]>([]);
   const [busy, setBusy] = useState(true);
   const [connecting, setConnecting] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const pollTimer = useRef<number | null>(null);
   const pollStartedAt = useRef(0);
 
-  const logout = () => {
+  const logout = async () => {
+    setDisconnecting(true);
+    setNotice(null);
+    try {
+      await api.disconnectFaceit();
+    } catch (err) {
+      const status = (err as { status?: number }).status;
+      if (status !== 404 && status !== 401) {
+        setNotice((err as Error).message);
+        setDisconnecting(false);
+        return;
+      }
+    }
     clearAuthToken();
     markLoggedOut();
     window.location.hash = '/splash';
@@ -98,7 +111,9 @@ export default function Home() {
     <main className="panel home">
       <header className="topbar">
         <h1>Coach</h1>
-        <button className="logout-btn" onClick={logout} type="button">Chiqish</button>
+        <button className="logout-btn" onClick={() => void logout()} disabled={disconnecting} type="button">
+          {disconnecting ? 'Chiqilmoqda…' : 'Chiqish'}
+        </button>
       </header>
       {notice && <p className="error-banner">{notice}</p>}
 
