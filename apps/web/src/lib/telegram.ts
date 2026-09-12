@@ -13,6 +13,8 @@ export interface TgWebApp {
   ready: () => void;
   expand: () => void;
   setHeaderColor?: (color: string) => void;
+  /** Open an external URL in the platform browser (Telegram WebApp SDK). */
+  openLink?: (url: string, options?: { try_instant_view?: boolean }) => void;
 }
 
 declare global {

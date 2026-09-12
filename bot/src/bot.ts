@@ -37,13 +37,18 @@ export async function startBot(): Promise<void> {
     new InlineKeyboard().webApp('🎮 OPEN AI COACH', `${webappUrl}?startapp=coach`);
 
   // Keep Telegram's bot menu button pointed at the production Mini App too.
-  await bot.api.setChatMenuButton({
-    menu_button: {
-      type: 'web_app',
-      text: '🎮 AI COACH',
-      web_app: { url: webappUrl },
-    },
-  });
+  // Failures here must not block the bot from starting.
+  try {
+    await bot.api.setChatMenuButton({
+      menu_button: {
+        type: 'web_app',
+        text: '🎮 AI COACH',
+        web_app: { url: webappUrl },
+      },
+    });
+  } catch (err) {
+    logger.warn('menu_button_failed', { error: err instanceof Error ? err.message : String(err) });
+  }
 
   bot.command('start', async (ctx) => {
     const name = ctx.from?.first_name ?? 'coach';

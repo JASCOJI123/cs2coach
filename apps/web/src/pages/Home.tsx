@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
+import { getTelegramWebApp } from '../lib/telegram';
 import { navigate } from '../App';
 import type { FaceitStatus, MatchLite } from '../lib/types';
 
@@ -28,7 +29,16 @@ export default function Home() {
     setConnecting(true);
     try {
       const { url } = await api.connectFaceit();
-      window.location.href = url;
+      // Open the FACEIT login in the platform browser, not inside the Telegram
+      // webview — external OAuth pages won't render in the webview and the user
+      // would be stranded there. Telegram's openLink returns after the link opens.
+      const tgApp = getTelegramWebApp();
+      if (tgApp?.openLink) {
+        tgApp.openLink(url);
+      } else {
+        window.open(url, '_blank');
+      }
+      setConnecting(false);
     } catch (err) {
       setNotice((err as Error).message);
       setConnecting(false);
