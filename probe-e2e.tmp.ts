@@ -61,8 +61,13 @@ async function main(): Promise<void> {
   const protectedRes = await fetch(`${API}/api/auth/faceit/status`, {
     headers: { Authorization: `Bearer ${jwt}` },
   });
-  console.log('protected route status:', protectedRes.status);
-  console.log('protected body:', (await protectedRes.text()).slice(0, 300));
+  console.log('faceit/status:', protectedRes.status, (await protectedRes.text()).slice(0, 200));
+
+  const connectRes = await fetch(`${API}/api/auth/faceit`, {
+    headers: { Authorization: `Bearer ${jwt}` },
+  });
+  const connectText = (await connectRes.text()).slice(0, 400);
+  console.log('faceit/connect:', connectRes.status, connectText);
 }
 
 main().catch((err) => {
