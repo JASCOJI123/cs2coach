@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { api } from '../lib/api';
+import { api, clearAuthToken } from '../lib/api';
 import { getTelegramWebApp } from '../lib/telegram';
 import { navigate } from '../App';
 import type { FaceitStatus, MatchLite } from '../lib/types';
@@ -15,6 +15,12 @@ export default function Home() {
   const [notice, setNotice] = useState<string | null>(null);
   const pollTimer = useRef<number | null>(null);
   const pollStartedAt = useRef(0);
+
+  const logout = () => {
+    if (!window.confirm('Chiqishni xohlaysizmi?')) return;
+    clearAuthToken();
+    navigate('splash');
+  };
 
   const refreshFaceit = async (): Promise<boolean> => {
     try {
@@ -88,7 +94,10 @@ export default function Home() {
 
   return (
     <main className="panel home">
-      <header className="topbar"><h1>Coach</h1></header>
+      <header className="topbar">
+        <h1>Coach</h1>
+        <button className="logout-btn" onClick={logout} type="button">Chiqish</button>
+      </header>
       {notice && <p className="error-banner">{notice}</p>}
 
       <section className="card">
