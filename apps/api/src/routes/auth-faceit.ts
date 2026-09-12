@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { randomBytes } from 'node:crypto';
 import { AppError, codes, encryptSecret, serializeEncrypted } from '@cs2coach/shared';
 import {
+  findFaceitAccountByFaceitUserId,
   findFaceitAccountByUserId,
   upsertFaceitAccountByUser,
   deleteFaceitAccount,
@@ -109,6 +110,19 @@ export async function faceitAuthRoutes(app: FastifyInstance, config: AppConfig):
     }
 
     const existing = await findFaceitAccountByUserId(config.db, pending.userId);
+
+    // A previous test may have created this FACEIT account under another
+    // Telegram user. Because faceit_user_id is UNIQUE, an upsert by user_id
+    // alone would fail with a duplicate-key error. Reassign the stale link
+    // before saving the current authenticated user's account.
+    const existingByFaceit = await findFaceitAccountByFaceitUserId(config.db, faceitUserId);
+    if (existingByFaceit && existingByFaceit.userId !== pending.userId) {
+      await deleteFaceitAccount(config.db, existingByFaceit.userId);
+      config.logger.info('faceit_previous_link_removed', {
+        previousUserId: existingByFaceit.userId,
+      });
+    }
+
     const accessTokenEnc = serializeEncrypted(encryptSecret(config.env.sessionSecret, tokens.accessToken));
     const refreshTokenEnc = tokens.refreshToken
       ? serializeEncrypted(encryptSecret(config.env.sessionSecret, tokens.refreshToken))
