@@ -1,9 +1,8 @@
 /**
  * FACEIT OAuth / FACEIT Connect flow (spec §12).
- * Never requests a FACEIT password — only the authorization-code grant with a
- * secure random `state` value validated by the backend.
+ * Uses Authorization Code + PKCE for FACEIT OAuth clients configured with PKCE.
  */
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { AppError, codes } from '@cs2coach/shared';
 import type { FaceitTokenResponse } from './types';
 
@@ -13,41 +12,53 @@ export interface OAuthConfig {
   redirectUri: string;
   /** Base URL for the data/token API (https://api.faceit.com). */
   authBaseUrl: string;
-  /**
-   * Base URL for the OAuth login (authorize) screen. FACEIT serves it from
-   * accounts.faceit.com, NOT from the API host — using api.faceit.com's
-   * /auth/v1/oauth/authorize path returns a Spring "Whitelabel" error page.
-   */
+  /** FACEIT OAuth authorize host (accounts.faceit.com). */
   authorizeBaseUrl: string;
 }
 
 export interface OAuthStatePayload {
-  telegramKey: string; // opaque session/state marker, not telegram id directly if contestable
+  telegramKey: string;
   csrf: string;
   exp: number;
 }
 
-export function randomOAuthState(ttlMs = 10 * 60_000): { state: string; payload: OAuthStatePayload } {
+export interface OAuthStart {
+  state: string;
+  payload: OAuthStatePayload;
+  codeVerifier: string;
+  codeChallenge: string;
+}
+
+function base64Url(value: Buffer): string {
+  return value.toString('base64').replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+}
+
+/** Create a state and PKCE verifier/challenge pair for one OAuth flow. */
+export function randomOAuthState(ttlMs = 10 * 60_000): OAuthStart {
   const csrf = randomBytes(16).toString('hex');
+  const codeVerifier = base64Url(randomBytes(32));
+  const codeChallenge = base64Url(createHash('sha256').update(codeVerifier).digest());
   const payload: OAuthStatePayload = {
     telegramKey: '',
     csrf,
     exp: Date.now() + ttlMs,
   };
-  return { state: csrf, payload };
+  return { state: csrf, payload, codeVerifier, codeChallenge };
 }
 
 /** Build the start URL for the FACEIT authorization screen. */
-export function buildAuthorizeUrl(config: OAuthConfig, state: string): string {
+export function buildAuthorizeUrl(config: OAuthConfig, state: string, codeChallenge?: string): string {
   const params = new URLSearchParams({
     response_type: 'code',
     client_id: config.clientId,
     redirect_uri: config.redirectUri,
     state,
-    // `offline_access` is required for FACEIT to return a refresh_token,
-    // which the callback stage demands (see exchangeCodeForToken).
     scope: 'openid profile email offline_access',
   });
+  if (codeChallenge) {
+    params.set('code_challenge', codeChallenge);
+    params.set('code_challenge_method', 'S256');
+  }
   return `${config.authorizeBaseUrl}/accounts?${params.toString()}`;
 }
 
@@ -58,24 +69,22 @@ export interface TokenSet {
   expiresAtMs: number;
 }
 
-/** FACEIT tokens issued at api.faceit.com must authenticate the client via
- * HTTP Basic auth (`WWW-Authenticate: Basic realm="oauth2/client"`). Sending
- * client_id/client_secret in the POST body instead returns a 401 Whitelabel,
- * which after the accounts.faceit.com login looks like a never-ending spinner. */
 function basicAuthHeader(config: OAuthConfig): string {
   return `Basic ${Buffer.from(`${config.clientId}:${config.clientSecret}`).toString('base64')}`;
 }
 
-/** Exchange an authorization code for tokens at the FACEIT token endpoint. */
+/** Exchange an authorization code for tokens, including the PKCE verifier. */
 export async function exchangeCodeForToken(
   config: OAuthConfig,
   code: string,
+  codeVerifier?: string,
 ): Promise<TokenSet> {
   const body = new URLSearchParams({
     grant_type: 'authorization_code',
     code,
     redirect_uri: config.redirectUri,
   });
+  if (codeVerifier) body.set('code_verifier', codeVerifier);
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 12_000);
@@ -123,10 +132,7 @@ export async function exchangeCodeForToken(
 
 /** Refresh an expiring token set. */
 export async function refreshAccessToken(config: OAuthConfig, refreshToken: string): Promise<TokenSet> {
-  const body = new URLSearchParams({
-    grant_type: 'refresh_token',
-    refresh_token: refreshToken,
-  });
+  const body = new URLSearchParams({ grant_type: 'refresh_token', refresh_token: refreshToken });
   const res = await fetch(`${config.authBaseUrl}/auth/v1/oauth/token`, {
     method: 'POST',
     headers: {
@@ -152,10 +158,6 @@ export async function refreshAccessToken(config: OAuthConfig, refreshToken: stri
   };
 }
 
-/**
- * Extract the FACEIT user id from the OpenID `id_token` payload (JWT) without
- * verifying the signature here — the token was just issued by FACEIT over TLS.
- */
 export function extractFaceitUserIdFromIdToken(idToken: string): string | null {
   const parts = idToken.split('.');
   if (parts.length < 2) return null;
