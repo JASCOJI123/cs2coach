@@ -2,9 +2,8 @@ import type { FastifyInstance } from 'fastify';
 import { randomBytes } from 'node:crypto';
 import { AppError, codes, encryptSecret, serializeEncrypted } from '@cs2coach/shared';
 import {
-  findFaceitAccountByFaceitUserId,
   findFaceitAccountByUserId,
-  upsertFaceitAccountByUser,
+  relinkFaceitAccount,
   deleteFaceitAccount,
 } from '@cs2coach/database';
 import type { AppConfig } from '../config';
@@ -54,57 +53,30 @@ async function disconnectFaceitWithRetry(config: AppConfig, userId: string): Pro
 export async function faceitAuthRoutes(app: FastifyInstance, config: AppConfig): Promise<void> {
   app.get('/api/auth/faceit', { preHandler: await requireAuth(config) }, async (request, reply) => {
     const user = request.authedUser!;
-    // The authorization page only needs the client id. The client secret is
-    // required later by the token endpoint, so do not block the login screen
-    // when a rotated secret is temporarily missing from Render.
     if (!config.env.faceitClientId) {
       config.logger.error('faceit_oauth_start_missing_client_id', { userId: user.userId });
-      return reply.status(503).send({
-        ok: false,
-        error: { code: codes.missingEnv, message: 'FACEIT_CLIENT_ID is missing on the server' },
-      });
+      return reply.status(503).send({ ok: false, error: { code: codes.missingEnv, message: 'FACEIT_CLIENT_ID is missing on the server' } });
     }
-
     try {
       const { state, codeVerifier, codeChallenge } = config.faceitOAuth.randomOAuthState(PENDING_TTL_MS);
       pendingStates.set(state, { userId: user.userId, exp: Date.now() + PENDING_TTL_MS, codeVerifier });
       const url = config.faceitOAuth.buildAuthorizeUrl(config.faceitOAuth.oauthConfig, state, codeChallenge);
-      // Validate the generated URL before returning it to the frontend. This
-      // catches malformed Render OAuth base/redirect configuration immediately.
       const parsed = new URL(url);
-      if (!['https:', 'http:'].includes(parsed.protocol) || !parsed.hostname) {
-        throw new Error('Generated FACEIT authorization URL is invalid');
-      }
-      config.logger.info('faceit_oauth_started', {
-        userId: user.userId,
-        hasRedirectUri: Boolean(config.faceitOAuth.oauthConfig.redirectUri),
-        authorizeBaseUrl: config.faceitOAuth.oauthConfig.authorizeBaseUrl,
-      });
+      if (!['https:', 'http:'].includes(parsed.protocol) || !parsed.hostname) throw new Error('Generated FACEIT authorization URL is invalid');
+      config.logger.info('faceit_oauth_started', { userId: user.userId, hasRedirectUri: Boolean(config.faceitOAuth.oauthConfig.redirectUri), authorizeBaseUrl: config.faceitOAuth.oauthConfig.authorizeBaseUrl });
       return reply.send({ ok: true, data: { url } });
     } catch (error) {
-      config.logger.error('faceit_oauth_start_failed', {
-        userId: user.userId,
-        error: error instanceof Error ? error.message : String(error),
-      });
-      return reply.status(503).send({
-        ok: false,
-        error: { code: codes.upstreamError, message: 'Unable to start FACEIT authorization' },
-      });
+      config.logger.error('faceit_oauth_start_failed', { userId: user.userId, error: error instanceof Error ? error.message : String(error) });
+      return reply.status(503).send({ ok: false, error: { code: codes.upstreamError, message: 'Unable to start FACEIT authorization' } });
     }
   });
 
   app.get('/api/auth/faceit/callback', async (request, reply) => {
     const q = request.query as { state?: string; code?: string; error?: string; error_description?: string };
-    config.logger.info('faceit_oauth_callback_received', {
-      hasCode: Boolean(q.code),
-      hasState: Boolean(q.state),
-      hasError: Boolean(q.error),
-    });
+    config.logger.info('faceit_oauth_callback_received', { hasCode: Boolean(q.code), hasState: Boolean(q.state), hasError: Boolean(q.error) });
     if (q.error) throw new AppError(codes.upstreamError, `FACEIT authorization failed: ${q.error_description ?? q.error}`, 400);
     if (!q.code || !q.state) throw new AppError(codes.badRequest, 'code and state are required', 400);
-    if (!config.env.faceitClientId || !config.env.faceitClientSecret) {
-      throw new AppError(codes.missingEnv, 'FACEIT OAuth is not configured on the server', 503);
-    }
+    if (!config.env.faceitClientId || !config.env.faceitClientSecret) throw new AppError(codes.missingEnv, 'FACEIT OAuth is not configured on the server', 503);
 
     const pending = pendingStates.get(q.state);
     if (!pending || pending.exp < Date.now()) {
@@ -114,11 +86,7 @@ export async function faceitAuthRoutes(app: FastifyInstance, config: AppConfig):
     pendingStates.delete(q.state);
 
     const tokens = await config.faceitOAuth.exchangeCodeForToken(q.code, pending.codeVerifier);
-    config.logger.info('faceit_oauth_token_received', {
-      hasAccessToken: Boolean(tokens.accessToken),
-      hasRefreshToken: Boolean(tokens.refreshToken),
-      hasIdToken: Boolean(tokens.idToken),
-    });
+    config.logger.info('faceit_oauth_token_received', { hasAccessToken: Boolean(tokens.accessToken), hasRefreshToken: Boolean(tokens.refreshToken), hasIdToken: Boolean(tokens.idToken) });
 
     let faceitUserId = config.faceitOAuth.extractFaceitUserIdFromIdToken(tokens.idToken ?? '');
     let userInfoNickname = '';
@@ -126,14 +94,10 @@ export async function faceitAuthRoutes(app: FastifyInstance, config: AppConfig):
       const userInfo = await config.faceitOAuth.getUserInfo(tokens.accessToken);
       faceitUserId = userInfo.sub ?? faceitUserId;
       userInfoNickname = userInfo.nickname ?? '';
-      config.logger.info('faceit_userinfo_loaded', {
-        hasSub: Boolean(userInfo.sub),
-        hasNickname: Boolean(userInfo.nickname),
-      });
+      config.logger.info('faceit_userinfo_loaded', { hasSub: Boolean(userInfo.sub), hasNickname: Boolean(userInfo.nickname) });
     } catch (err) {
       config.logger.warn('faceit_userinfo_failed', { error: err instanceof Error ? err.message : String(err) });
     }
-
     if (!faceitUserId) throw new AppError(codes.upstreamError, 'FACEIT did not return a user id', 400);
 
     let nickname = userInfoNickname;
@@ -141,11 +105,8 @@ export async function faceitAuthRoutes(app: FastifyInstance, config: AppConfig):
     let country: string | null = null;
     let skillLevel: number | null = null;
     let elo: number | null = null;
-
     try {
-      const profile = nickname
-        ? await config.faceitClient.getPlayerByNickname(nickname, 'cs2')
-        : await config.faceitClient.getPlayerById(faceitUserId);
+      const profile = nickname ? await config.faceitClient.getPlayerByNickname(nickname, 'cs2') : await config.faceitClient.getPlayerById(faceitUserId);
       nickname = profile.nickname ?? nickname;
       avatar = profile.avatar ?? null;
       country = profile.country ?? null;
@@ -154,27 +115,15 @@ export async function faceitAuthRoutes(app: FastifyInstance, config: AppConfig):
       faceitUserId = profile.player_id || faceitUserId;
       config.logger.info('faceit_profile_loaded', { hasNickname: Boolean(nickname) });
     } catch (err) {
-      config.logger.warn('faceit_profile_load_failed', {
-        error: err instanceof Error ? err.message : String(err),
-      });
+      config.logger.warn('faceit_profile_load_failed', { error: err instanceof Error ? err.message : String(err) });
     }
 
     const existing = await findFaceitAccountByUserId(config.db, pending.userId);
-    const existingByFaceit = await findFaceitAccountByFaceitUserId(config.db, faceitUserId);
-    if (existingByFaceit && existingByFaceit.userId !== pending.userId) {
-      await deleteFaceitAccount(config.db, existingByFaceit.userId);
-      config.logger.info('faceit_previous_link_removed', {
-        previousUserId: existingByFaceit.userId,
-      });
-    }
-
     const accessTokenEnc = serializeEncrypted(encryptSecret(config.env.sessionSecret, tokens.accessToken));
-    const refreshTokenEnc = tokens.refreshToken
-      ? serializeEncrypted(encryptSecret(config.env.sessionSecret, tokens.refreshToken))
-      : existing?.refreshToken ?? null;
+    const refreshTokenEnc = tokens.refreshToken ? serializeEncrypted(encryptSecret(config.env.sessionSecret, tokens.refreshToken)) : existing?.refreshToken ?? null;
 
     try {
-      await upsertFaceitAccountByUser(config.db, {
+      await relinkFaceitAccount(config.db, {
         userId: pending.userId,
         faceitUserId,
         nickname: nickname || existing?.nickname || faceitUserId,
@@ -187,18 +136,13 @@ export async function faceitAuthRoutes(app: FastifyInstance, config: AppConfig):
         expiresAtMs: tokens.expiresAtMs,
       });
     } catch (err) {
-      config.logger.error('faceit_account_save_failed', {
-        userId: pending.userId,
-        error: err instanceof Error ? err.message : String(err),
-      });
+      config.logger.error('faceit_account_save_failed', { userId: pending.userId, error: err instanceof Error ? err.message : String(err) });
       throw err;
     }
 
     config.logger.info('faceit_account_saved', { userId: pending.userId });
-
     const handoff = createHandoff(pending.userId);
     config.logger.info('faceit_oauth_completed', { userId: pending.userId });
-
     return reply.redirect(`https://t.me/cs2ustozbot?startapp=${encodeURIComponent(handoff)}`);
   });
 
@@ -216,12 +160,7 @@ export async function faceitAuthRoutes(app: FastifyInstance, config: AppConfig):
   app.get('/api/auth/faceit/status', { preHandler: await requireAuth(config) }, async (request, reply) => {
     const user = request.authedUser!;
     const account = await findFaceitAccountByUserId(config.db, user.userId);
-    return reply.send({
-      ok: true,
-      data: account
-        ? { connected: true, nickname: account.nickname, faceitUserId: account.faceitUserId, avatar: account.avatar, country: account.country, skillLevel: account.skillLevel, elo: account.elo }
-        : { connected: false },
-    });
+    return reply.send({ ok: true, data: account ? { connected: true, nickname: account.nickname, faceitUserId: account.faceitUserId, avatar: account.avatar, country: account.country, skillLevel: account.skillLevel, elo: account.elo } : { connected: false } });
   });
 
   app.delete('/api/auth/faceit', { preHandler: await requireAuth(config) }, async (request, reply) => {
