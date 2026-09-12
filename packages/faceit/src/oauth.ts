@@ -11,7 +11,14 @@ export interface OAuthConfig {
   clientId: string;
   clientSecret: string;
   redirectUri: string;
+  /** Base URL for the data/token API (https://api.faceit.com). */
   authBaseUrl: string;
+  /**
+   * Base URL for the OAuth login (authorize) screen. FACEIT serves it from
+   * accounts.faceit.com, NOT from the API host — using api.faceit.com's
+   * /auth/v1/oauth/authorize path returns a Spring "Whitelabel" error page.
+   */
+  authorizeBaseUrl: string;
 }
 
 export interface OAuthStatePayload {
@@ -41,7 +48,7 @@ export function buildAuthorizeUrl(config: OAuthConfig, state: string): string {
     // which the callback stage demands (see exchangeCodeForToken).
     scope: 'openid profile email offline_access',
   });
-  return `${config.authBaseUrl}/auth/v1/oauth/authorize?${params.toString()}`;
+  return `${config.authorizeBaseUrl}/accounts?${params.toString()}`;
 }
 
 export interface TokenSet {

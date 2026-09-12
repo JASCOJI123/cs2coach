@@ -86,6 +86,7 @@ export function createAppConfig(): AppConfig {
     clientSecret: env.faceitClientSecret ?? '',
     redirectUri: env.faceitRedirectUri ?? `${env.telegramWebappUrl ?? 'http://localhost:5173'}/faceit/callback`,
     authBaseUrl: env.faceitAuthBaseUrl,
+    authorizeBaseUrl: env.faceitAuthorizeBaseUrl,
   };
   const faceitOAuth = {
     oauthConfig,

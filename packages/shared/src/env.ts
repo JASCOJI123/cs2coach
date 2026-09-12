@@ -33,6 +33,8 @@ export interface Env {
   faceitClientSecret?: string;
   faceitRedirectUri?: string;
   faceitAuthBaseUrl: string;
+  /** FACEIT OAuth login (authorize) host — separate from the data/token API. */
+  faceitAuthorizeBaseUrl: string;
   faceitDataBaseUrl: string;
   faceitWebhookSecret?: string;
 
@@ -102,6 +104,7 @@ export function loadEnv(): Env {
     faceitClientSecret: readString('FACEIT_CLIENT_SECRET'),
     faceitRedirectUri: readString('FACEIT_REDIRECT_URI'),
     faceitAuthBaseUrl: readString('FACEIT_AUTH_BASE_URL') ?? 'https://api.faceit.com',
+    faceitAuthorizeBaseUrl: readString('FACEIT_AUTHORIZE_BASE_URL') ?? 'https://accounts.faceit.com',
     faceitDataBaseUrl: readString('FACEIT_DATA_BASE_URL') ?? 'https://open.faceit.com/data/v4',
     faceitWebhookSecret: readString('FACEIT_WEBHOOK_SECRET'),
 
