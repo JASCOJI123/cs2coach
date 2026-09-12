@@ -16,6 +16,8 @@ import { getDb, closeDb, findUserByTelegramId, findFaceitAccountByUserId, listMa
 
 const logger: Logger = createLogger('bot');
 
+const DEFAULT_WEBAPP_URL = 'https://jascoji123.github.io/cs2coach/';
+
 export async function startBot(): Promise<void> {
   const env = loadEnv();
   const token = env.telegramBotToken;
@@ -25,12 +27,23 @@ export async function startBot(): Promise<void> {
   }
 
   const db = getDb(env.databaseUrl ?? 'postgresql://localhost:5432/cs2coach');
-  const webappUrl = env.telegramWebappUrl ?? 'http://localhost:5173';
+  // GitHub Pages is the production Mini App host. TELEGRAM_WEBAPP_URL can still
+  // override it for a custom domain or another environment.
+  const webappUrl = env.telegramWebappUrl ?? DEFAULT_WEBAPP_URL;
 
   const bot = new Bot(token);
 
   const openCoachKeyboard = () =>
     new InlineKeyboard().webApp('🎮 OPEN AI COACH', `${webappUrl}?startapp=coach`);
+
+  // Keep Telegram's bot menu button pointed at the production Mini App too.
+  await bot.api.setChatMenuButton({
+    menu_button: {
+      type: 'web_app',
+      text: '🎮 AI COACH',
+      web_app: { url: webappUrl },
+    },
+  });
 
   bot.command('start', async (ctx) => {
     const name = ctx.from?.first_name ?? 'coach';
@@ -104,7 +117,7 @@ export async function startBot(): Promise<void> {
 
   // Register bot via getUpdates (works on Render Free, no public webhook needed)
   await bot.init();
-  logger.info('bot_started', { username: bot.botInfo.username });
+  logger.info('bot_started', { username: bot.botInfo.username, webappUrl });
   bot.start({ drop_pending_updates: true });
 
   const shutdown = async () => {
