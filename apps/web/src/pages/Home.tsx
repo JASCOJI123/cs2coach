@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { api, clearAuthToken } from '../lib/api';
 import { getTelegramWebApp } from '../lib/telegram';
 import { navigate } from '../App';
+import { markLoggedOut } from './Splash';
 import type { FaceitStatus, MatchLite } from '../lib/types';
 
 const FACEIT_POLL_MS = 1500;
@@ -18,6 +19,7 @@ export default function Home() {
 
   const logout = () => {
     clearAuthToken();
+    markLoggedOut();
     window.location.hash = '/splash';
     window.location.reload();
   };
