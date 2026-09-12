@@ -37,7 +37,9 @@ export function buildAuthorizeUrl(config: OAuthConfig, state: string): string {
     client_id: config.clientId,
     redirect_uri: config.redirectUri,
     state,
-    scope: 'openid',
+    // `offline_access` is required for FACEIT to return a refresh_token,
+    // which the callback stage demands (see exchangeCodeForToken).
+    scope: 'openid profile email offline_access',
   });
   return `${config.authBaseUrl}/auth/v1/oauth/authorize?${params.toString()}`;
 }
