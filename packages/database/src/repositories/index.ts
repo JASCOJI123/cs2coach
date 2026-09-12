@@ -207,7 +207,7 @@ export interface UpsertMatchInput {
 export async function upsertMatchFromFaceit(sql: Sql, input: UpsertMatchInput): Promise<MatchRow> {
   const [row] = await sql<MatchRow[]>`
     insert into matches (faceit_match_id, game, competition, map, status, started_at, finished_at, team_a_id, team_b_id, score_a, score_b)
-    values (${input.faceitMatchId}, ${input.game ?? 'cs2'}, ${input.competition ?? null}, ${input.status}, ${input.startedAtMs ? new Date(input.startedAtMs) : null}, ${input.finishedAtMs ? new Date(input.finishedAtMs) : null}, ${input.teamAId ?? null}, ${input.teamBId ?? null}, ${input.scoreA ?? 0}, ${input.scoreB ?? 0})
+    values (${input.faceitMatchId}, ${input.game ?? 'cs2'}, ${input.competition ?? null}, ${input.map ?? null}, ${input.status}, ${input.startedAtMs ? new Date(input.startedAtMs) : null}, ${input.finishedAtMs ? new Date(input.finishedAtMs) : null}, ${input.teamAId ?? null}, ${input.teamBId ?? null}, ${input.scoreA ?? 0}, ${input.scoreB ?? 0})
     on conflict (faceit_match_id) do update set game = excluded.game, competition = excluded.competition, map = coalesce(excluded.map, matches.map), status = excluded.status, started_at = coalesce(excluded.started_at, matches.started_at), finished_at = coalesce(excluded.finished_at, matches.finished_at), team_a_id = coalesce(excluded.team_a_id, matches.team_a_id), team_b_id = coalesce(excluded.team_b_id, matches.team_b_id), score_a = coalesce(excluded.score_a, matches.score_a), score_b = coalesce(excluded.score_b, matches.score_b), updated_at = now()
     returning id, faceit_match_id, game, competition, map, status, started_at, finished_at, team_a_id, team_b_id, score_a, score_b, created_at, updated_at
   `;
