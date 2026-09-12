@@ -4,16 +4,12 @@ import { addMatchPlayer, findFaceitAccountByFaceitUserId, upsertMatchFromFaceit,
 import { isSupportedEvent, normalizeMatchPayload, webhookToGameEvents } from '@cs2coach/faceit';
 import type { AppConfig } from '../config';
 
-function headerValue(value: string | string[] | undefined): string | undefined {
-  return Array.isArray(value) ? value[0] : value;
-}
-
+function headerValue(value: string | string[] | undefined): string | undefined { return Array.isArray(value) ? value[0] : value; }
 function findMatchId(body: Record<string, unknown>): string | null {
   const payload = (body.payload ?? body.data ?? body) as Record<string, unknown> | undefined;
   const direct = [payload?.match_id, payload?.matchId, body.match_id, body.matchId];
   return direct.find((value): value is string => typeof value === 'string' && value.length > 0) ?? null;
 }
-
 function rosterForFaction(faction: Record<string, unknown>): Array<Record<string, unknown>> {
   const roster = faction.roster ?? faction.members;
   return Array.isArray(roster) ? roster.filter((v): v is Record<string, unknown> => typeof v === 'object' && v !== null) : [];
@@ -22,9 +18,7 @@ function rosterForFaction(faction: Record<string, unknown>): Array<Record<string
 export async function faceitWebhookRoutes(app: FastifyInstance, config: AppConfig): Promise<void> {
   app.post('/api/webhooks/faceit', async (request, reply) => {
     const secret = config.env.faceitWebhookSecret;
-    if (config.env.isProduction && !secret) {
-      throw new AppError(codes.missingEnv, 'FACEIT_WEBHOOK_SECRET is not configured', 503);
-    }
+    if (config.env.isProduction && !secret) throw new AppError(codes.missingEnv, 'FACEIT_WEBHOOK_SECRET is not configured', 503);
     if (secret) {
       const provided = headerValue(request.headers['x-faceit-webhook-secret']) ?? headerValue(request.headers['x-faceit-secret']);
       if (provided !== secret) throw new AppError(codes.unauthorized, 'Invalid FACEIT webhook authentication', 401);
@@ -34,7 +28,6 @@ export async function faceitWebhookRoutes(app: FastifyInstance, config: AppConfi
     const event = typeof body.event === 'string' ? body.event : typeof body.event_type === 'string' ? body.event_type : '';
     if (!event) throw new AppError(codes.badRequest, 'FACEIT webhook missing event', 400);
     if (!isSupportedEvent(event)) return reply.send({ ok: true, ignored: true, event });
-
     const matchId = findMatchId(body);
     if (!matchId) throw new AppError(codes.badRequest, 'FACEIT webhook missing match_id', 400);
 
@@ -42,21 +35,15 @@ export async function faceitWebhookRoutes(app: FastifyInstance, config: AppConfi
     const normalized = normalizeMatchPayload(detail);
     const teams = Object.values(detail.teams ?? {});
     const accountIds = new Set<string>();
-
     const payload = (body.payload ?? body.data) as Record<string, unknown> | undefined;
-    for (const value of [payload?.user_id, payload?.player_id, body.user_id, body.player_id]) {
-      if (typeof value === 'string') accountIds.add(value);
-    }
-    for (const faction of teams) {
-      for (const member of [...(faction.roster ?? []), ...(faction.members ?? [])]) accountIds.add(member.player_id);
-    }
+    for (const value of [payload?.user_id, payload?.player_id, body.user_id, body.player_id]) if (typeof value === 'string') accountIds.add(value);
+    for (const faction of teams) for (const member of [...(faction.roster ?? []), ...(faction.members ?? [])]) accountIds.add(member.player_id);
 
     let linkedAccount = null;
     for (const candidate of accountIds) {
       const account = await findFaceitAccountByFaceitUserId(config.db, candidate);
       if (account) { linkedAccount = account; break; }
     }
-
     if (!linkedAccount) {
       config.logger.info('faceit_webhook_ignored_unlinked_match', { event, matchId });
       return reply.send({ ok: true, ignored: true, reason: 'no linked CS2 Ustoz account', matchId });
@@ -76,24 +63,16 @@ export async function faceitWebhookRoutes(app: FastifyInstance, config: AppConfi
 
     for (let index = 0; index < teams.length; index += 1) {
       const faction = teams[index] as Record<string, unknown>;
-      const members = rosterForFaction(faction);
-      for (const member of members) {
+      for (const member of rosterForFaction(faction)) {
         const faceitPlayerId = typeof member.player_id === 'string' ? member.player_id : null;
         const nickname = typeof member.nickname === 'string' ? member.nickname : null;
         if (!faceitPlayerId || !nickname) continue;
-        const player = await upsertPlayer(config.db, {
-          faceitPlayerId,
-          nickname,
-          avatar: typeof member.avatar === 'string' ? member.avatar : null,
-          skillLevel: typeof member.skill_level === 'number' ? member.skill_level : null,
-        });
-        await addMatchPlayer({} as never, {} as never).catch(() => undefined);
+        const player = await upsertPlayer(config.db, { faceitPlayerId, nickname, avatar: typeof member.avatar === 'string' ? member.avatar : null, skillLevel: typeof member.skill_level === 'number' ? member.skill_level : null });
         await addMatchPlayer(config.db, { matchId: match.id, playerId: player.id, team: index === 1 ? 'B' : 'A' });
       }
     }
 
-    const events = webhookToGameEvents(event, normalized);
-    config.matchStateEngine.applyEvents(events);
+    config.matchStateEngine.applyEvents(webhookToGameEvents(event, normalized));
     config.logger.info('faceit_webhook_processed', { event, matchId, linkedUserId: linkedAccount.userId, status: normalized.status });
     return reply.send({ ok: true, event, matchId, status: normalized.status });
   });
