@@ -68,6 +68,20 @@ async function main(): Promise<void> {
   });
   const connectText = (await connectRes.text()).slice(0, 400);
   console.log('faceit/connect:', connectRes.status, connectText);
+
+  // Follow the actual OAuth return path: hit the callback with the state from
+  // the connect route and a BOGUS code. This exercises the real FACEIT token
+  // endpoint + real client_secret, and shows the exact error our server throws
+  // when the code is bad — which tells us if the exchange config is correct.
+  let state = '';
+  try {
+    state = (JSON.parse(connectText).data as { url: string }).url.split('state=')[1].split('&')[0];
+  } catch {
+    state = 'probe-' + Math.random().toString(36).slice(2, 8);
+  }
+  const cbRes = await fetch(`${API}/api/auth/faceit/callback?state=${encodeURIComponent(state)}&code=PROBE_BOGUS_CODE`);
+  const cbText = (await cbRes.text()).slice(0, 500);
+  console.log('faceit/callback bogus-code:', cbRes.status, cbText);
 }
 
 main().catch((err) => {
