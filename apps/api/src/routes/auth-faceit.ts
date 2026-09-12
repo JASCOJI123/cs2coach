@@ -1,4 +1,4 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { randomBytes } from 'node:crypto';
 import { AppError, codes, encryptSecret, serializeEncrypted } from '@cs2coach/shared';
 import {
@@ -163,7 +163,7 @@ export async function faceitAuthRoutes(app: FastifyInstance, config: AppConfig):
     return reply.send({ ok: true, data: account ? { connected: true, nickname: account.nickname, faceitUserId: account.faceitUserId, avatar: account.avatar, country: account.country, skillLevel: account.skillLevel, elo: account.elo } : { connected: false } });
   });
 
-  const disconnectHandler = async (request: Parameters<Parameters<FastifyInstance['delete']>[1]>[0], reply: Parameters<Parameters<FastifyInstance['delete']>[1]>[1]) => {
+  const disconnectHandler = async (request: FastifyRequest, reply: FastifyReply) => {
     const user = request.authedUser!;
     await disconnectFaceitWithRetry(config, user.userId);
     config.logger.info('faceit_account_disconnected', { userId: user.userId });
