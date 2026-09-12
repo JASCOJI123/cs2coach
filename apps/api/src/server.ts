@@ -22,7 +22,9 @@ export async function buildServer(config: AppConfig = createAppConfig()): Promis
   const app = Fastify({ logger: false, trustProxy: true });
   const origins = config.env.allowedOrigins;
   await app.register(cors, { origin(origin, cb) { if (!origin || origins.length === 0 || origins.includes(origin)) { cb(null, true); return; } cb(new AppError('CORS', `Origin not allowed: ${origin}`, 403), false); }, credentials: true });
-  await app.register(rateLimit, { max: 120, timeWindow: '1 minute' });
+  // CS2 GSI can legitimately send several updates per second. Keep the global
+  // limit high enough for live telemetry while still protecting the API.
+  await app.register(rateLimit, { max: 1000, timeWindow: '1 minute' });
   await app.register(websocket);
 
   app.get('/', async (_request, reply) => reply.send({ ok: true, service: 'cs2coach-api', description: 'CS2 AI COACH backend — Telegram Mini App API', version: '0.2.0', endpoints: { health: '/health', apiHealth: '/api/health', telegramAuth: '/api/auth/telegram', faceitAuth: '/api/auth/faceit', matches: '/api/matches', subscription: '/api/subscription', faceitWebhook: '/api/webhooks/faceit', gsi: '/api/game-state/gsi', gameState: '/api/game-state', demo: '/api/demo' }, dataPolicy: 'No fake data — unavailable state is shown as is' }));
