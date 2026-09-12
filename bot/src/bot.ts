@@ -115,3 +115,13 @@ export async function startBot(): Promise<void> {
   process.on('SIGINT', () => void shutdown());
   process.on('SIGTERM', () => void shutdown());
 }
+
+// Start the bot when run directly (npx tsx bot/src/bot.ts / npm run dev:bot),
+// not when imported by tests or other entrypoints.
+const isMain = require.main === module;
+if (isMain) {
+  startBot().catch((err) => {
+    logger.error('bot_boot_failed', { error: err instanceof Error ? err.message : String(err) });
+    process.exit(1);
+  });
+}
