@@ -57,14 +57,24 @@ export async function faceitAuthRoutes(app: FastifyInstance, config: AppConfig):
     if (!config.env.faceitClientId || !config.env.faceitClientSecret) {
       throw new AppError(codes.missingEnv, 'FACEIT OAuth is not configured on the server', 503);
     }
-    const { state, codeVerifier, codeChallenge } = config.faceitOAuth.randomOAuthState(PENDING_TTL_MS);
-    pendingStates.set(state, { userId: user.userId, exp: Date.now() + PENDING_TTL_MS, codeVerifier });
-    const url = config.faceitOAuth.buildAuthorizeUrl(config.faceitOAuth.oauthConfig, state, codeChallenge);
-    config.logger.info('faceit_oauth_started', {
-      userId: user.userId,
-      redirectHost: new URL(config.faceitOAuth.oauthConfig.redirectUri).host,
-    });
-    return reply.send({ ok: true, data: { url } });
+
+    try {
+      const { state, codeVerifier, codeChallenge } = config.faceitOAuth.randomOAuthState(PENDING_TTL_MS);
+      pendingStates.set(state, { userId: user.userId, exp: Date.now() + PENDING_TTL_MS, codeVerifier });
+      const url = config.faceitOAuth.buildAuthorizeUrl(config.faceitOAuth.oauthConfig, state, codeChallenge);
+      config.logger.info('faceit_oauth_started', {
+        userId: user.userId,
+        hasRedirectUri: Boolean(config.faceitOAuth.oauthConfig.redirectUri),
+        authorizeBaseUrl: config.faceitOAuth.oauthConfig.authorizeBaseUrl,
+      });
+      return reply.send({ ok: true, data: { url } });
+    } catch (error) {
+      config.logger.error('faceit_oauth_start_failed', {
+        userId: user.userId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw new AppError(codes.upstreamError, 'Unable to start FACEIT authorization', 503);
+    }
   });
 
   app.get('/api/auth/faceit/callback', async (request, reply) => {
