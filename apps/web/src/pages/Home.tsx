@@ -11,6 +11,7 @@ export default function Home() {
   const [faceit, setFaceit] = useState<FaceitStatus | null>(null);
   const [matches, setMatches] = useState<MatchLite[]>([]);
   const [busy, setBusy] = useState(true);
+  const [refreshingMatches, setRefreshingMatches] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -44,6 +45,21 @@ export default function Home() {
     }
   };
 
+  const refreshMatches = async () => {
+    if (refreshingMatches) return;
+    setRefreshingMatches(true);
+    try {
+      const next = await api.listMatches();
+      setMatches(next);
+      setNotice(null);
+    } catch (err) {
+      const error = err as { message?: string };
+      setNotice(error.message ?? 'Matchlarni yuklashda xato');
+    } finally {
+      setRefreshingMatches(false);
+    }
+  };
+
   useEffect(() => {
     void (async () => {
       try {
@@ -64,11 +80,14 @@ export default function Home() {
 
   useEffect(() => {
     const onVisible = () => {
-      if (document.visibilityState === 'visible') void refreshFaceit();
+      if (document.visibilityState === 'visible') {
+        void refreshFaceit();
+        void refreshMatches();
+      }
     };
     document.addEventListener('visibilitychange', onVisible);
     return () => document.removeEventListener('visibilitychange', onVisible);
-  }, []);
+  });
 
   const stopFaceitPolling = () => {
     if (pollTimer.current !== null) {
@@ -82,6 +101,7 @@ export default function Home() {
     const connected = await refreshFaceit();
     if (connected || Date.now() - pollStartedAt.current >= FACEIT_POLL_TIMEOUT_MS) {
       stopFaceitPolling();
+      if (connected) void refreshMatches();
       return;
     }
     pollTimer.current = window.setTimeout(() => void pollFaceitStatus(), FACEIT_POLL_MS);
@@ -143,7 +163,12 @@ export default function Home() {
       </section>
 
       <section className="card">
-        <h2>Recent matches</h2>
+        <div className="section-heading">
+          <h2>Recent matches</h2>
+          <button className="secondary" onClick={() => void refreshMatches()} disabled={refreshingMatches} type="button">
+            {refreshingMatches ? 'Yangilanmoqda…' : 'Yangilash'}
+          </button>
+        </div>
         {matches.length === 0 ? (
           <p className="waiting">No matches yet. Finished online matches will appear here.</p>
         ) : (
