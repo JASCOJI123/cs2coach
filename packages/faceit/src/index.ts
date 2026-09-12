@@ -7,7 +7,7 @@ export {
   extractFaceitUserIdFromIdToken,
   randomOAuthState,
 } from './oauth';
-export type { OAuthConfig, TokenSet, OAuthStatePayload } from './oauth';
+export type { OAuthConfig, TokenSet, OAuthStatePayload, OAuthStart } from './oauth';
 export {
   SUPPORTED_EVENTS,
   isSupportedEvent,
