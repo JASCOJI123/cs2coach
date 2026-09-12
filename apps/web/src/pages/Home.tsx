@@ -1,8 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../lib/api';
 import { getTelegramWebApp } from '../lib/telegram';
 import { navigate } from '../App';
 import type { FaceitStatus, MatchLite } from '../lib/types';
+
+const FACEIT_POLL_MS = 1500;
+const FACEIT_POLL_TIMEOUT_MS = 5 * 60_000;
 
 export default function Home() {
   const [faceit, setFaceit] = useState<FaceitStatus | null>(null);
@@ -10,6 +13,18 @@ export default function Home() {
   const [busy, setBusy] = useState(true);
   const [connecting, setConnecting] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const pollTimer = useRef<number | null>(null);
+  const pollStartedAt = useRef(0);
+
+  const refreshFaceit = async (): Promise<boolean> => {
+    try {
+      const status = await api.faceitStatus();
+      setFaceit(status);
+      return status.connected;
+    } catch {
+      return false;
+    }
+  };
 
   useEffect(() => {
     void (async () => {
@@ -23,22 +38,53 @@ export default function Home() {
         setBusy(false);
       }
     })();
+
+    return () => {
+      if (pollTimer.current !== null) window.clearTimeout(pollTimer.current);
+    };
   }, []);
 
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void refreshFaceit();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
+
+  const stopFaceitPolling = () => {
+    if (pollTimer.current !== null) {
+      window.clearTimeout(pollTimer.current);
+      pollTimer.current = null;
+    }
+    setConnecting(false);
+  };
+
+  const pollFaceitStatus = async () => {
+    const connected = await refreshFaceit();
+    if (connected || Date.now() - pollStartedAt.current >= FACEIT_POLL_TIMEOUT_MS) {
+      stopFaceitPolling();
+      return;
+    }
+    pollTimer.current = window.setTimeout(() => void pollFaceitStatus(), FACEIT_POLL_MS);
+  };
+
   const connect = async () => {
+    setNotice(null);
     setConnecting(true);
     try {
       const { url } = await api.connectFaceit();
-      // Open the FACEIT login in the platform browser, not inside the Telegram
-      // webview — external OAuth pages won't render in the webview and the user
-      // would be stranded there. Telegram's openLink returns after the link opens.
+      // Keep the Mini App open while FACEIT runs in the external browser.
+      // The original Mini App session is not shared with that browser, so the
+      // Mini App polls the server until the FACEIT account is saved.
       const tgApp = getTelegramWebApp();
       if (tgApp?.openLink) {
         tgApp.openLink(url);
       } else {
         window.open(url, '_blank');
       }
-      setConnecting(false);
+      pollStartedAt.current = Date.now();
+      void pollFaceitStatus();
     } catch (err) {
       setNotice((err as Error).message);
       setConnecting(false);
