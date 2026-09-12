@@ -8,6 +8,7 @@ import rateLimit from '@fastify/rate-limit';
 import websocket from '@fastify/websocket';
 
 import { AppError, isAppError, toErrorBody, createLogger } from '@cs2coach/shared';
+import { runMigrations } from '@cs2coach/database';
 import { createAppConfig, type AppConfig } from './config';
 import { WebSocketManager } from './ws/websocket-manager';
 import { healthRoutes } from './routes/health';
@@ -101,6 +102,15 @@ const isMain = require.main === module;
 if (isMain) {
   void (async () => {
     const config = createAppConfig();
+    // Apply any pending schema migrations on boot (idempotent SQL). DB is
+    // optional in dev/demo, so a failure here must not kill the server.
+    if (config.env.databaseUrl) {
+      await runMigrations(config.db)
+        .then((names) => {
+          if (names.length > 0) config.logger.info('migrations_applied', { names });
+        })
+        .catch((err) => config.logger.warn('migrations_failed', { error: (err as Error).message }));
+    }
     const app = await buildServer(config);
     await app.listen({ port: config.env.port, host: config.env.host });
     config.logger.info('server_listening', {
