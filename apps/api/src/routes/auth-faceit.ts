@@ -54,14 +54,27 @@ async function disconnectFaceitWithRetry(config: AppConfig, userId: string): Pro
 export async function faceitAuthRoutes(app: FastifyInstance, config: AppConfig): Promise<void> {
   app.get('/api/auth/faceit', { preHandler: await requireAuth(config) }, async (request, reply) => {
     const user = request.authedUser!;
-    if (!config.env.faceitClientId || !config.env.faceitClientSecret) {
-      throw new AppError(codes.missingEnv, 'FACEIT OAuth is not configured on the server', 503);
+    // The authorization page only needs the client id. The client secret is
+    // required later by the token endpoint, so do not block the login screen
+    // when a rotated secret is temporarily missing from Render.
+    if (!config.env.faceitClientId) {
+      config.logger.error('faceit_oauth_start_missing_client_id', { userId: user.userId });
+      return reply.status(503).send({
+        ok: false,
+        error: { code: codes.missingEnv, message: 'FACEIT_CLIENT_ID is missing on the server' },
+      });
     }
 
     try {
       const { state, codeVerifier, codeChallenge } = config.faceitOAuth.randomOAuthState(PENDING_TTL_MS);
       pendingStates.set(state, { userId: user.userId, exp: Date.now() + PENDING_TTL_MS, codeVerifier });
       const url = config.faceitOAuth.buildAuthorizeUrl(config.faceitOAuth.oauthConfig, state, codeChallenge);
+      // Validate the generated URL before returning it to the frontend. This
+      // catches malformed Render OAuth base/redirect configuration immediately.
+      const parsed = new URL(url);
+      if (!['https:', 'http:'].includes(parsed.protocol) || !parsed.hostname) {
+        throw new Error('Generated FACEIT authorization URL is invalid');
+      }
       config.logger.info('faceit_oauth_started', {
         userId: user.userId,
         hasRedirectUri: Boolean(config.faceitOAuth.oauthConfig.redirectUri),
@@ -73,7 +86,10 @@ export async function faceitAuthRoutes(app: FastifyInstance, config: AppConfig):
         userId: user.userId,
         error: error instanceof Error ? error.message : String(error),
       });
-      throw new AppError(codes.upstreamError, 'Unable to start FACEIT authorization', 503);
+      return reply.status(503).send({
+        ok: false,
+        error: { code: codes.upstreamError, message: 'Unable to start FACEIT authorization' },
+      });
     }
   });
 
