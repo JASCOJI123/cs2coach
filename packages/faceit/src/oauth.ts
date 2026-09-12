@@ -48,13 +48,14 @@ export function randomOAuthState(ttlMs = 10 * 60_000): OAuthStart {
 
 /** Build the start URL for the FACEIT authorization screen. */
 export function buildAuthorizeUrl(config: OAuthConfig, state: string, codeChallenge?: string): string {
-  // FACEIT publishes these four scopes; offline_access is not supported by the
-  // current OpenID configuration and can leave the consent flow in a broken
-  // state. Refresh tokens, when issued by FACEIT, are handled server-side.
+  // FACEIT Connect expects redirect_popup=true for the OAuth popup flow.
+  // Without it, FACEIT can finish authentication on a standalone success page
+  // instead of returning the authorization code to the configured redirect URI.
   const params = new URLSearchParams({
     response_type: 'code',
     client_id: config.clientId,
     redirect_uri: config.redirectUri,
+    redirect_popup: 'true',
     state,
     scope: 'openid profile email',
   });
