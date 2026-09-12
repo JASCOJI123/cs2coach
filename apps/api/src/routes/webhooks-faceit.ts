@@ -8,7 +8,14 @@ import type { AppConfig } from '../config';
 function headerValue(value: string | string[] | undefined): string | undefined { return Array.isArray(value) ? value[0] : value; }
 function findMatchId(body: Record<string, unknown>): string | null {
   const payload = (body.payload ?? body.data ?? body) as Record<string, unknown> | undefined;
-  const direct = [payload?.match_id, payload?.matchId, body.match_id, body.matchId];
+  const direct = [
+    payload?.id,
+    payload?.match_id,
+    payload?.matchId,
+    payload?.match?.id,
+    body.match_id,
+    body.matchId,
+  ];
   return direct.find((value): value is string => typeof value === 'string' && value.length > 0) ?? null;
 }
 function rosterForFaction(faction: FaceitFaction): FaceitFaction['members'] { return faction.roster ?? faction.members; }
