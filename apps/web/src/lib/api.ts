@@ -33,8 +33,10 @@ export function authTokenOrThrow(): string {
   return authToken;
 }
 
+const productionApiUrl = 'https://cs2coach-api.onrender.com';
+
 export const apiUrl = (path: string): string =>
-  (import.meta.env.VITE_API_URL ?? '') + path;
+  (import.meta.env.VITE_API_URL || productionApiUrl) + path;
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers: Record<string, string> = { 'content-type': 'application/json', ...(init.headers as Record<string, string>) };
