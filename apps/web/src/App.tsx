@@ -9,14 +9,16 @@ export type Route = 'splash' | 'home' | 'matches' | 'match' | 'faceit-callback';
 
 function parseHash(): { route: Route; param?: string } {
   const raw = window.location.hash.replace(/^#\/?/, '');
-  const [path, param] = raw.split('/');
+  const [pathPart, param] = raw.split('/');
+  // Strip any query string (?ok=1) that may follow the path inside the hash.
+  const path = pathPart.split('?')[0];
   switch (path) {
     case 'home':
       return { route: 'home' };
     case 'matches':
       return { route: 'matches' };
     case 'match':
-      return { route: 'match', param: param ? decodeURIComponent(param) : undefined };
+      return { route: 'match', param: param ? decodeURIComponent(param.split('?')[0]) : undefined };
     case 'faceit-callback':
       return { route: 'faceit-callback' };
     default:

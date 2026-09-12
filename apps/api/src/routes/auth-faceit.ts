@@ -94,7 +94,7 @@ export async function faceitAuthRoutes(app: FastifyInstance, config: AppConfig):
       expiresAtMs: tokens.expiresAtMs,
     });
 
-    return reply.redirect(`${config.env.telegramWebappUrl ?? 'http://localhost:5173'}/faceit/callback?ok=1`);
+    return reply.redirect(`${config.env.telegramWebappUrl ?? 'http://localhost:5173'}/#/faceit-callback?ok=1`);
   });
 
   // GET /api/auth/faceit/status

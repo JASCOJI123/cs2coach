@@ -3,12 +3,10 @@ import { navigate } from '../App';
 
 export default function FaceitCallback() {
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('ok') === '1') {
-      navigate('home');
-    } else {
-      navigate('home');
-    }
+    // The API redirects to `#/faceit-callback?ok=1`; the query lives inside the
+    // hash (window.location.search is empty in our hash-based router). Either
+    // outcome lands on Home, which re-reads the live FACEIT status.
+    navigate('home');
   }, []);
 
   return (
