@@ -22,6 +22,12 @@ function createHandoff(userId: string): string {
   return handoff;
 }
 
+function miniAppCallbackUrl(webappUrl: string, handoff: string): string {
+  const url = new URL(webappUrl);
+  url.searchParams.set('faceit_handoff', handoff);
+  return url.toString();
+}
+
 function isRetryableDbError(error: unknown): boolean {
   const code = typeof error === 'object' && error !== null && 'code' in error
     ? String((error as { code?: unknown }).code ?? '')
@@ -142,8 +148,9 @@ export async function faceitAuthRoutes(app: FastifyInstance, config: AppConfig):
 
     config.logger.info('faceit_account_saved', { userId: pending.userId });
     const handoff = createHandoff(pending.userId);
-    config.logger.info('faceit_oauth_completed', { userId: pending.userId });
-    return reply.redirect(`https://t.me/cs2ustozbot?startapp=${encodeURIComponent(handoff)}`);
+    const target = miniAppCallbackUrl(config.env.telegramWebappUrl, handoff);
+    config.logger.info('faceit_oauth_completed', { userId: pending.userId, returnToMiniApp: true });
+    return reply.redirect(target);
   });
 
   app.post('/api/auth/faceit/callback-session', async (request, reply) => {
