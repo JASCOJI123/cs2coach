@@ -163,10 +163,13 @@ export async function faceitAuthRoutes(app: FastifyInstance, config: AppConfig):
     return reply.send({ ok: true, data: account ? { connected: true, nickname: account.nickname, faceitUserId: account.faceitUserId, avatar: account.avatar, country: account.country, skillLevel: account.skillLevel, elo: account.elo } : { connected: false } });
   });
 
-  app.delete('/api/auth/faceit', { preHandler: await requireAuth(config) }, async (request, reply) => {
+  const disconnectHandler = async (request: Parameters<Parameters<FastifyInstance['delete']>[1]>[0], reply: Parameters<Parameters<FastifyInstance['delete']>[1]>[1]) => {
     const user = request.authedUser!;
     await disconnectFaceitWithRetry(config, user.userId);
     config.logger.info('faceit_account_disconnected', { userId: user.userId });
     return reply.send({ ok: true, data: { connected: false } });
-  });
+  };
+
+  app.delete('/api/auth/faceit', { preHandler: await requireAuth(config) }, disconnectHandler);
+  app.post('/api/auth/faceit/disconnect', { preHandler: await requireAuth(config) }, disconnectHandler);
 }
