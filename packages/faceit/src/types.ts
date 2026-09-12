@@ -20,6 +20,22 @@ export interface FaceitPlayerCore {
   };
 }
 
+export interface FaceitPlayerSearchItem {
+  player_id: string;
+  nickname: string;
+  avatar?: string;
+  country?: string;
+  status?: string;
+  verified?: boolean;
+  games?: Array<{ name?: string; skill_level?: number }>;
+}
+
+export interface FaceitPlayerSearchResponse {
+  items: FaceitPlayerSearchItem[];
+  start?: number;
+  end?: number;
+}
+
 export interface FaceitMember {
   player_id: string;
   nickname: string;
