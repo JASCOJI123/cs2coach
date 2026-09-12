@@ -8,11 +8,12 @@ import type { AppConfig } from '../config';
 function headerValue(value: string | string[] | undefined): string | undefined { return Array.isArray(value) ? value[0] : value; }
 function findMatchId(body: Record<string, unknown>): string | null {
   const payload = (body.payload ?? body.data ?? body) as Record<string, unknown> | undefined;
+  const payloadMatch = payload?.match as Record<string, unknown> | undefined;
   const direct = [
     payload?.id,
     payload?.match_id,
     payload?.matchId,
-    payload?.match?.id,
+    payloadMatch?.id,
     body.match_id,
     body.matchId,
   ];
