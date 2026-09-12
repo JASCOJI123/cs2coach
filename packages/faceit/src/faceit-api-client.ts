@@ -102,7 +102,12 @@ export class FaceitApiClient {
       throw new AppError(codes.missingEnv, 'FACEIT_API_KEY is not configured', 500);
     }
 
-    const url = new URL(path, this.baseUrl.endsWith('/') ? this.baseUrl : `${this.baseUrl}/`);
+    // The Data API base URL contains a path (/data/v4). A leading slash in
+    // `path` would make URL() discard that path and incorrectly call
+    // https://open.faceit.com/players instead of /data/v4/players.
+    const normalizedBase = this.baseUrl.endsWith('/') ? this.baseUrl : `${this.baseUrl}/`;
+    const normalizedPath = path.replace(/^\/+/, '');
+    const url = new URL(normalizedPath, normalizedBase);
     if (ctx.query) {
       for (const [key, value] of Object.entries(ctx.query)) {
         if (value !== undefined) url.searchParams.set(key, String(value));
@@ -164,12 +169,7 @@ export class FaceitApiClient {
 
         const text = await res.text();
         if (res.status >= 400) {
-          this.logger.warn('faceit_error', {
-            path,
-            status: res.status,
-            duration,
-            upstreamBody: text.slice(0, 500),
-          });
+          this.logger.warn('faceit_error', { path, status: res.status, duration, upstreamBody: text.slice(0, 500) });
           throw new AppError(this.mapStatus(res.status), `FACEIT ${method} ${path} failed (${res.status})`, res.status);
         }
 
@@ -242,27 +242,20 @@ export class FaceitApiClient {
       return await this.getPlayerById(playerId);
     } catch (error) {
       if (!nickname) throw error;
-
-      // OAuth `sub` is not guaranteed to be the Data API player_id.
-      // Resolve by nickname first, and only use the OAuth subject as a final fallback.
       try {
         return await this.getPlayerByNickname(nickname, game);
       } catch {
-        try {
-          return await this.getPlayerByNickname(nickname);
-        } catch {
-          const result = await this.searchPlayers(nickname, game).catch(() => this.searchPlayers(nickname));
-          const exact = result.items.find((item) => item.nickname.toLowerCase() === nickname.toLowerCase());
-          const item = exact ?? result.items[0];
-          if (!item) throw error;
-          return {
-            player_id: item.player_id,
-            nickname: item.nickname,
-            avatar: item.avatar,
-            country: item.country,
-            games: {},
-          };
-        }
+        const result = await this.searchPlayers(nickname, game);
+        const exact = result.items.find((item) => item.nickname.toLowerCase() === nickname.toLowerCase());
+        const item = exact ?? result.items[0];
+        if (!item) throw error;
+        return {
+          player_id: item.player_id,
+          nickname: item.nickname,
+          avatar: item.avatar,
+          country: item.country,
+          games: {},
+        };
       }
     }
   }
