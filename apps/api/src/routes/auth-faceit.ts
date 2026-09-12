@@ -32,7 +32,7 @@ export async function faceitAuthRoutes(app: FastifyInstance, config: AppConfig):
     const { state, codeVerifier, codeChallenge } = config.faceitOAuth.randomOAuthState(PENDING_TTL_MS);
     pendingStates.set(state, { userId: user.userId, exp: Date.now() + PENDING_TTL_MS, codeVerifier });
     const url = config.faceitOAuth.buildAuthorizeUrl(config.faceitOAuth.oauthConfig, state, codeChallenge);
-    config.logger.info('faceit_oauth_started', { userId: user.userId });
+    config.logger.info('faceit_oauth_started', { userId: user.userId, redirectHost: new URL(config.faceitOAuth.oauthConfig.redirectUri).host });
     return reply.send({ ok: true, data: { url } });
   });
 
@@ -62,25 +62,44 @@ export async function faceitAuthRoutes(app: FastifyInstance, config: AppConfig):
       hasRefreshToken: Boolean(tokens.refreshToken),
       hasIdToken: Boolean(tokens.idToken),
     });
-    const faceitUserId = config.faceitOAuth.extractFaceitUserIdFromIdToken(tokens.idToken ?? '');
+
+    let faceitUserId = config.faceitOAuth.extractFaceitUserIdFromIdToken(tokens.idToken ?? '');
+    let userInfoNickname = '';
+    try {
+      const userInfo = await config.faceitOAuth.getUserInfo(tokens.accessToken);
+      faceitUserId = userInfo.sub ?? faceitUserId;
+      userInfoNickname = userInfo.nickname ?? '';
+      config.logger.info('faceit_userinfo_loaded', {
+        hasSub: Boolean(userInfo.sub),
+        hasNickname: Boolean(userInfo.nickname),
+      });
+    } catch (err) {
+      config.logger.warn('faceit_userinfo_failed', { error: err instanceof Error ? err.message : String(err) });
+    }
+
     if (!faceitUserId) throw new AppError(codes.upstreamError, 'FACEIT did not return a user id', 400);
 
-    let nickname = '';
+    let nickname = userInfoNickname;
     let avatar: string | null = null;
     let country: string | null = null;
     let skillLevel: number | null = null;
     let elo: number | null = null;
     try {
-      const profile = await config.faceitClient.getPlayerById(faceitUserId);
-      nickname = profile.nickname ?? '';
+      // OAuth userinfo provides the authenticated FACEIT nickname. Resolve the
+      // Data API player by nickname instead of assuming the OAuth subject is a
+      // Data API player_id; FACEIT can expose different identifiers here.
+      const profile = nickname
+        ? await config.faceitClient.getPlayerByNickname(nickname)
+        : await config.faceitClient.getPlayerById(faceitUserId);
+      nickname = profile.nickname ?? nickname;
       avatar = profile.avatar ?? null;
       country = profile.country ?? null;
       skillLevel = profile.games?.cs2?.skill_level ?? null;
       elo = profile.games?.cs2?.faceit_elo ?? null;
+      faceitUserId = profile.player_id || faceitUserId;
       config.logger.info('faceit_profile_loaded', { hasNickname: Boolean(nickname) });
     } catch (err) {
       config.logger.warn('faceit_profile_load_failed', { error: err instanceof Error ? err.message : String(err) });
-      // OAuth linking remains successful even if the optional public profile lookup fails.
     }
 
     const account = await findFaceitAccountByFaceitUserId(config.db, faceitUserId);
