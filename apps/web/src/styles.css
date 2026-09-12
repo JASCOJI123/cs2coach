@@ -55,9 +55,21 @@ h2 { font-size: 16px; margin: 0 0 8px; }
 .topbar {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
   margin-bottom: 16px;
 }
+.logout-btn {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--muted);
+  border-radius: 8px;
+  padding: 7px 11px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.logout-btn:active { opacity: 0.75; }
 .back {
   background: var(--panel);
   border: 1px solid var(--line);
