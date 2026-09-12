@@ -5,6 +5,7 @@ import rateLimit from '@fastify/rate-limit';
 import websocket from '@fastify/websocket';
 import { AppError, isAppError, toErrorBody, createLogger } from '@cs2coach/shared';
 import { runMigrations } from '@cs2coach/database';
+import { createAppConfig, type AppConfig } from './config';
 import { WebSocketManager } from './ws/websocket-manager';
 import { healthRoutes } from './routes/health';
 import { matchesRoutes } from './routes/matches';
@@ -22,8 +23,6 @@ export async function buildServer(config: AppConfig = createAppConfig()): Promis
   const app = Fastify({ logger: false, trustProxy: true });
   const origins = config.env.allowedOrigins;
   await app.register(cors, { origin(origin, cb) { if (!origin || origins.length === 0 || origins.includes(origin)) { cb(null, true); return; } cb(new AppError('CORS', `Origin not allowed: ${origin}`, 403), false); }, credentials: true });
-  // CS2 GSI can legitimately send several updates per second. Keep the global
-  // limit high enough for live telemetry while still protecting the API.
   await app.register(rateLimit, { max: 1000, timeWindow: '1 minute' });
   await app.register(websocket);
 
