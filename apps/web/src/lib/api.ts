@@ -67,10 +67,13 @@ export const apiUrl = (path: string): string =>
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (!authToken) authToken = loadStoredToken();
-  const headers: Record<string, string> = { 'content-type': 'application/json', ...(init.headers as Record<string, string>) };
+  const headers: Record<string, string> = { ...(init.headers as Record<string, string> | undefined) };
+  if (init.body != null && !headers['content-type'] && !headers['Content-Type']) {
+    headers['content-type'] = 'application/json';
+  }
   if (authToken) headers.authorization = `Bearer ${authToken}`;
 
-  const res = await fetch(apiUrl(path), { ...init, headers });
+  const res = await fetch(apiUrl(path), { ...init, headers, cache: 'no-store' });
   const body = (await res.json().catch(() => null)) as ApiEnvelope<T> | null;
   if (!res.ok || !body?.ok) {
     if (res.status === 401) clearAuthToken();
@@ -93,7 +96,7 @@ export const api = {
 
   connectFaceit: () => request<{ url: string }>('/api/auth/faceit'),
 
-  disconnectFaceit: () => request<void>('/api/auth/faceit/disconnect', { method: 'POST' }),
+  disconnectFaceit: () => request<{ connected: false }>('/api/auth/faceit/disconnect', { method: 'POST', body: '{}' }),
 
   listMatches: () => request<MatchLite[]>('/api/matches'),
 
