@@ -148,7 +148,7 @@ export async function faceitAuthRoutes(app: FastifyInstance, config: AppConfig):
 
     config.logger.info('faceit_account_saved', { userId: pending.userId });
     const handoff = createHandoff(pending.userId);
-    const target = miniAppCallbackUrl(config.env.telegramWebappUrl, handoff);
+    const target = miniAppCallbackUrl(config.env.telegramWebappUrl ?? 'https://jascoji123.github.io/cs2coach/', handoff);
     config.logger.info('faceit_oauth_completed', { userId: pending.userId, returnToMiniApp: true });
     return reply.redirect(target);
   });
