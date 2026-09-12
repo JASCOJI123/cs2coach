@@ -23,6 +23,34 @@ function createHandoff(userId: string): string {
   return handoff;
 }
 
+function isRetryableDbError(error: unknown): boolean {
+  const code = typeof error === 'object' && error !== null && 'code' in error
+    ? String((error as { code?: unknown }).code ?? '')
+    : '';
+  return ['08000', '08003', '08006', '40001', '40P01', '53300', '57P01'].includes(code);
+}
+
+async function disconnectFaceitWithRetry(config: AppConfig, userId: string): Promise<void> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      await deleteFaceitAccount(config.db, userId);
+      return;
+    } catch (error) {
+      lastError = error;
+      config.logger.warn('faceit_disconnect_attempt_failed', {
+        userId,
+        attempt,
+        retryable: isRetryableDbError(error),
+        error: error instanceof Error ? error.message : String(error),
+      });
+      if (!isRetryableDbError(error) || attempt === 3) break;
+      await new Promise((resolve) => setTimeout(resolve, 250 * attempt));
+    }
+  }
+  throw lastError;
+}
+
 export async function faceitAuthRoutes(app: FastifyInstance, config: AppConfig): Promise<void> {
   app.get('/api/auth/faceit', { preHandler: await requireAuth(config) }, async (request, reply) => {
     const user = request.authedUser!;
@@ -145,9 +173,6 @@ export async function faceitAuthRoutes(app: FastifyInstance, config: AppConfig):
     const handoff = createHandoff(pending.userId);
     config.logger.info('faceit_oauth_completed', { userId: pending.userId });
 
-    // OAuth was completed in an external browser. Return through Telegram's
-    // Main Mini App deep link so the user lands back inside Telegram instead
-    // of seeing the GitHub Pages URL in Safari.
     return reply.redirect(`https://t.me/cs2ustozbot?startapp=${encodeURIComponent(handoff)}`);
   });
 
@@ -175,7 +200,8 @@ export async function faceitAuthRoutes(app: FastifyInstance, config: AppConfig):
 
   app.delete('/api/auth/faceit', { preHandler: await requireAuth(config) }, async (request, reply) => {
     const user = request.authedUser!;
-    await deleteFaceitAccount(config.db, user.userId);
+    await disconnectFaceitWithRetry(config, user.userId);
+    config.logger.info('faceit_account_disconnected', { userId: user.userId });
     return reply.send({ ok: true, data: { connected: false } });
   });
 }
