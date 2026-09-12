@@ -3,10 +3,11 @@
  * callback (validate state + exchange code), expose connection status.
  * Tokens are AES-256-GCM encrypted at rest with `serializeEncrypted`.
  *
- * The OAuth state binds the already JWT-authenticated user to the pending
- * flow. PKCE verifier is kept server-side and is never sent to the browser.
+ * OAuth state binds the already JWT-authenticated user to the pending flow.
+ * PKCE verifier is kept server-side and is never sent to the browser.
  */
 import type { FastifyInstance } from 'fastify';
+import { randomBytes } from 'node:crypto';
 import { AppError, codes, encryptSecret, serializeEncrypted } from '@cs2coach/shared';
 import {
   findFaceitAccountByFaceitUserId,
@@ -23,8 +24,21 @@ interface PendingOAuth {
   codeVerifier: string;
 }
 
+interface PendingHandoff {
+  userId: string;
+  exp: number;
+}
+
 const PENDING_TTL_MS = 10 * 60_000;
+const HANDOFF_TTL_MS = 5 * 60_000;
 const pendingStates = new Map<string, PendingOAuth>();
+const pendingHandoffs = new Map<string, PendingHandoff>();
+
+function createHandoff(userId: string): string {
+  const handoff = randomBytes(32).toString('hex');
+  pendingHandoffs.set(handoff, { userId, exp: Date.now() + HANDOFF_TTL_MS });
+  return handoff;
+}
 
 export async function faceitAuthRoutes(app: FastifyInstance, config: AppConfig): Promise<void> {
   // GET /api/auth/faceit — start OAuth, return the authorize URL
@@ -92,7 +106,42 @@ export async function faceitAuthRoutes(app: FastifyInstance, config: AppConfig):
       expiresAtMs: tokens.expiresAtMs,
     });
 
-    return reply.redirect(`${config.env.telegramWebappUrl ?? 'http://localhost:5173'}/#/faceit-callback?ok=1`);
+    const handoff = createHandoff(pending.userId);
+    const webappUrl = config.env.telegramWebappUrl ?? 'http://localhost:5173';
+    return reply.redirect(`${webappUrl}#/faceit-callback?handoff=${encodeURIComponent(handoff)}`);
+  });
+
+  // Exchange the one-time browser handoff for a normal API session. This route
+  // is intentionally unauthenticated because the handoff itself is a random,
+  // single-use, five-minute capability created only after a successful FACEIT
+  // OAuth callback. The returned session is the same JWT used everywhere else.
+  app.post('/api/auth/faceit/callback-session', async (request, reply) => {
+    const body = request.body as { handoff?: string } | undefined;
+    const handoff = body?.handoff;
+    if (!handoff || !/^[a-f0-9]{64}$/.test(handoff)) {
+      throw new AppError(codes.badRequest, 'handoff is required', 400);
+    }
+
+    const pending = pendingHandoffs.get(handoff);
+    pendingHandoffs.delete(handoff);
+    if (!pending || pending.exp < Date.now()) {
+      throw new AppError(codes.forbidden, 'Invalid or expired FACEIT handoff', 400);
+    }
+
+    const token = config.signSession({
+      sub: pending.userId,
+      telegramId: 0,
+    });
+
+    return reply.send({
+      ok: true,
+      data: {
+        token,
+        expiresAt: Date.now() + config.env.sessionTtlMs,
+        user: { id: pending.userId, firstName: '', username: '' },
+        demoMode: config.env.isDemoMode,
+      },
+    });
   });
 
   app.get('/api/auth/faceit/status', { preHandler: await requireAuth(config) }, async (request, reply) => {
