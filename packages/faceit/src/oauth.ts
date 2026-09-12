@@ -29,6 +29,14 @@ export interface OAuthStart {
   codeChallenge: string;
 }
 
+export interface FaceitUserInfo {
+  sub?: string;
+  nickname?: string;
+  email?: string;
+  picture?: string;
+  country?: string;
+}
+
 function base64Url(value: Buffer): string {
   return value.toString('base64').replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
 }
@@ -48,9 +56,6 @@ export function randomOAuthState(ttlMs = 10 * 60_000): OAuthStart {
 
 /** Build the start URL for the FACEIT authorization screen. */
 export function buildAuthorizeUrl(config: OAuthConfig, state: string, codeChallenge?: string): string {
-  // FACEIT Connect expects redirect_popup=true for the OAuth popup flow.
-  // Without it, FACEIT can finish authentication on a standalone success page
-  // instead of returning the authorization code to the configured redirect URI.
   const params = new URLSearchParams({
     response_type: 'code',
     client_id: config.clientId,
@@ -132,6 +137,32 @@ export async function exchangeCodeForToken(
     idToken: json.id_token,
     expiresAtMs: Date.now() + (json.expires_in ?? 3600) * 1000,
   };
+}
+
+/** Resolve the authenticated FACEIT account using the OAuth userinfo endpoint. */
+export async function getUserInfo(config: OAuthConfig, accessToken: string): Promise<FaceitUserInfo> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10_000);
+  try {
+    const res = await fetch(`${config.authBaseUrl}/auth/v1/resources/userinfo`, {
+      headers: { Accept: 'application/json', Authorization: `Bearer ${accessToken}` },
+      signal: controller.signal,
+    });
+    const text = await res.text();
+    if (!res.ok) {
+      throw new AppError(codes.upstreamError, `FACEIT userinfo failed (${res.status})`, res.status || 502, { body: text.slice(0, 200) });
+    }
+    try {
+      return JSON.parse(text) as FaceitUserInfo;
+    } catch {
+      throw new AppError(codes.upstreamError, 'FACEIT returned invalid userinfo JSON', 502);
+    }
+  } catch (err) {
+    if (err instanceof AppError) throw err;
+    throw new AppError(codes.upstreamError, 'FACEIT userinfo request failed', 502, err instanceof Error ? { cause: err.message } : undefined);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /** Refresh an expiring token set. */
