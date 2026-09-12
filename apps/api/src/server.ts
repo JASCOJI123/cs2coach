@@ -5,7 +5,6 @@ import rateLimit from '@fastify/rate-limit';
 import websocket from '@fastify/websocket';
 import { AppError, isAppError, toErrorBody, createLogger } from '@cs2coach/shared';
 import { runMigrations } from '@cs2coach/database';
-import { createAppConfig, type AppConfig } from './config';
 import { WebSocketManager } from './ws/websocket-manager';
 import { healthRoutes } from './routes/health';
 import { matchesRoutes } from './routes/matches';
