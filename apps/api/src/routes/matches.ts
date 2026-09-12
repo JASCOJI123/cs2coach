@@ -10,36 +10,48 @@ import {
   getMatchByFaceitId,
   listMatchesForUser,
   syncFaceitPlayerHistory,
+  updateFaceitAccountPlayerId,
 } from '@cs2coach/database';
 import type { AppConfig } from '../config';
 import { requireAuth } from '../middleware/telegram-auth';
 
 export async function matchesRoutes(app: FastifyInstance, config: AppConfig): Promise<void> {
-  // GET /api/matches — list the user's matches
   app.get('/api/matches', { preHandler: await requireAuth(config) }, async (request, reply) => {
     const user = request.authedUser!;
     const account = await findFaceitAccountByUserId(config.db, user.userId);
 
-    // FACEIT history is the source of truth for recent matches. Keep the DB
-    // list as the response source so existing match/live routes stay unchanged.
     if (account?.faceitUserId) {
       try {
-        const history = await config.faceitClient.getPlayerMatches(account.faceitUserId, {
+        // OAuth's `sub` and the Data API player id can differ. Resolve the
+        // canonical Data API player before requesting player history.
+        const player = await config.faceitClient.resolvePlayer(account.faceitUserId, account.nickname, 'cs2');
+        if (player.player_id !== account.faceitUserId) {
+          await updateFaceitAccountPlayerId(config.db, user.userId, player.player_id);
+        }
+
+        const history = await config.faceitClient.getPlayerMatches(player.player_id, {
           offset: 0,
           limit: 20,
         });
+
         await syncFaceitPlayerHistory(config.db, {
-          faceitPlayerId: account.faceitUserId,
-          nickname: account.nickname,
-          avatar: account.avatar,
-          country: account.country,
-          skillLevel: account.skillLevel,
-          elo: account.elo,
+          faceitPlayerId: player.player_id,
+          nickname: player.nickname || account.nickname,
+          avatar: player.avatar ?? account.avatar,
+          country: player.country ?? account.country,
+          skillLevel: player.games?.cs2?.skill_level ?? account.skillLevel,
+          elo: player.games?.cs2?.faceit_elo ?? account.elo,
           items: history.items ?? [],
+        });
+
+        config.logger.info('faceit_history_synced', {
+          userId: user.userId,
+          matchCount: history.items?.length ?? 0,
         });
       } catch (error) {
         config.logger.warn('faceit_history_sync_failed', {
           userId: user.userId,
+          faceitUserId: account.faceitUserId,
           error: error instanceof Error ? error.message : String(error),
         });
       }
@@ -60,7 +72,6 @@ export async function matchesRoutes(app: FastifyInstance, config: AppConfig): Pr
     });
   });
 
-  // GET /api/matches/:faceitMatchId — match detail + live coaching state
   app.get('/api/matches/:faceitMatchId', { preHandler: await requireAuth(config) }, async (request, reply) => {
     const faceitMatchId = (request.params as { faceitMatchId: string }).faceitMatchId;
     const match = await getMatchByFaceitId(config.db, faceitMatchId);
@@ -80,7 +91,6 @@ export async function matchesRoutes(app: FastifyInstance, config: AppConfig): Pr
     });
   });
 
-  // POST /api/matches/:faceitMatchId/coach — request an AI decision for live state
   app.post('/api/matches/:faceitMatchId/coach', { preHandler: await requireAuth(config) }, async (request, reply) => {
     const faceitMatchId = (request.params as { faceitMatchId: string }).faceitMatchId;
     const match = await getMatchByFaceitId(config.db, faceitMatchId);
