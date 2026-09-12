@@ -2,9 +2,8 @@ import type { FastifyInstance } from 'fastify';
 import { randomBytes } from 'node:crypto';
 import { AppError, codes, encryptSecret, serializeEncrypted } from '@cs2coach/shared';
 import {
-  findFaceitAccountByFaceitUserId,
   findFaceitAccountByUserId,
-  upsertFaceitAccountByUser,
+  relinkFaceitAccount,
   deleteFaceitAccount,
 } from '@cs2coach/database';
 import type { AppConfig } from '../config';
@@ -89,8 +88,6 @@ export async function faceitAuthRoutes(app: FastifyInstance, config: AppConfig):
     let elo: number | null = null;
 
     try {
-      // FACEIT Data API documents nickname + game on GET /players.
-      // Passing CS2 explicitly avoids the ambiguous game-less lookup.
       const profile = nickname
         ? await config.faceitClient.getPlayerByNickname(nickname, 'cs2')
         : await config.faceitClient.getPlayerById(faceitUserId);
@@ -102,8 +99,6 @@ export async function faceitAuthRoutes(app: FastifyInstance, config: AppConfig):
       faceitUserId = profile.player_id || faceitUserId;
       config.logger.info('faceit_profile_loaded', { hasNickname: Boolean(nickname) });
     } catch (err) {
-      // Profile enrichment is optional. OAuth itself already succeeded, so do
-      // not turn a Data API 404 into a failed account-linking callback.
       config.logger.warn('faceit_profile_load_failed', {
         error: err instanceof Error ? err.message : String(err),
       });
@@ -111,25 +106,13 @@ export async function faceitAuthRoutes(app: FastifyInstance, config: AppConfig):
 
     const existing = await findFaceitAccountByUserId(config.db, pending.userId);
 
-    // A previous test may have created this FACEIT account under another
-    // Telegram user. Because faceit_user_id is UNIQUE, an upsert by user_id
-    // alone would fail with a duplicate-key error. Reassign the stale link
-    // before saving the current authenticated user's account.
-    const existingByFaceit = await findFaceitAccountByFaceitUserId(config.db, faceitUserId);
-    if (existingByFaceit && existingByFaceit.userId !== pending.userId) {
-      await deleteFaceitAccount(config.db, existingByFaceit.userId);
-      config.logger.info('faceit_previous_link_removed', {
-        previousUserId: existingByFaceit.userId,
-      });
-    }
-
     const accessTokenEnc = serializeEncrypted(encryptSecret(config.env.sessionSecret, tokens.accessToken));
     const refreshTokenEnc = tokens.refreshToken
       ? serializeEncrypted(encryptSecret(config.env.sessionSecret, tokens.refreshToken))
       : existing?.refreshToken ?? null;
 
     try {
-      await upsertFaceitAccountByUser(config.db, {
+      await relinkFaceitAccount(config.db, {
         userId: pending.userId,
         faceitUserId,
         nickname: nickname || existing?.nickname || faceitUserId,
