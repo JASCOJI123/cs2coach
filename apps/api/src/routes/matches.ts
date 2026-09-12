@@ -5,7 +5,12 @@
  */
 import type { FastifyInstance } from 'fastify';
 import { AppError, codes } from '@cs2coach/shared';
-import { getMatchByFaceitId, listMatchesForUser } from '@cs2coach/database';
+import {
+  findFaceitAccountByUserId,
+  getMatchByFaceitId,
+  listMatchesForUser,
+  syncFaceitPlayerHistory,
+} from '@cs2coach/database';
 import type { AppConfig } from '../config';
 import { requireAuth } from '../middleware/telegram-auth';
 
@@ -13,6 +18,33 @@ export async function matchesRoutes(app: FastifyInstance, config: AppConfig): Pr
   // GET /api/matches — list the user's matches
   app.get('/api/matches', { preHandler: await requireAuth(config) }, async (request, reply) => {
     const user = request.authedUser!;
+    const account = await findFaceitAccountByUserId(config.db, user.userId);
+
+    // FACEIT history is the source of truth for recent matches. Keep the DB
+    // list as the response source so existing match/live routes stay unchanged.
+    if (account?.faceitUserId) {
+      try {
+        const history = await config.faceitClient.getPlayerMatches(account.faceitUserId, {
+          offset: 0,
+          limit: 20,
+        });
+        await syncFaceitPlayerHistory(config.db, {
+          faceitPlayerId: account.faceitUserId,
+          nickname: account.nickname,
+          avatar: account.avatar,
+          country: account.country,
+          skillLevel: account.skillLevel,
+          elo: account.elo,
+          items: history.items ?? [],
+        });
+      } catch (error) {
+        config.logger.warn('faceit_history_sync_failed', {
+          userId: user.userId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
     const matches = await listMatchesForUser(config.db, { userId: user.userId, limit: 30 });
     return reply.send({
       ok: true,
