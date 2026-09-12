@@ -26,9 +26,9 @@ export default function FaceitCallback() {
 
         const auth = await api.exchangeFaceitHandoff(handoff);
         setAuthToken(auth.token);
-        // Remove the one-time handoff from browser history/URL before entering
-        // the authenticated app.
-        window.history.replaceState(null, '', window.location.pathname + window.location.search);
+        // Remove the one-time handoff from both query string and hash before
+        // entering the authenticated app so a refresh cannot replay it.
+        window.history.replaceState(null, '', window.location.pathname);
         navigate('home');
       } catch (err) {
         setError((err as Error).message);
