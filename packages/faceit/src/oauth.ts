@@ -58,6 +58,14 @@ export interface TokenSet {
   expiresAtMs: number;
 }
 
+/** FACEIT tokens issued at api.faceit.com must authenticate the client via
+ * HTTP Basic auth (`WWW-Authenticate: Basic realm="oauth2/client"`). Sending
+ * client_id/client_secret in the POST body instead returns a 401 Whitelabel,
+ * which after the accounts.faceit.com login looks like a never-ending spinner. */
+function basicAuthHeader(config: OAuthConfig): string {
+  return `Basic ${Buffer.from(`${config.clientId}:${config.clientSecret}`).toString('base64')}`;
+}
+
 /** Exchange an authorization code for tokens at the FACEIT token endpoint. */
 export async function exchangeCodeForToken(
   config: OAuthConfig,
@@ -67,8 +75,6 @@ export async function exchangeCodeForToken(
     grant_type: 'authorization_code',
     code,
     redirect_uri: config.redirectUri,
-    client_id: config.clientId,
-    client_secret: config.clientSecret,
   });
 
   const controller = new AbortController();
@@ -77,7 +83,11 @@ export async function exchangeCodeForToken(
   try {
     res = await fetch(`${config.authBaseUrl}/auth/v1/oauth/token`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Accept: 'application/json',
+        Authorization: basicAuthHeader(config),
+      },
       body,
       signal: controller.signal,
     });
@@ -116,12 +126,14 @@ export async function refreshAccessToken(config: OAuthConfig, refreshToken: stri
   const body = new URLSearchParams({
     grant_type: 'refresh_token',
     refresh_token: refreshToken,
-    client_id: config.clientId,
-    client_secret: config.clientSecret,
   });
   const res = await fetch(`${config.authBaseUrl}/auth/v1/oauth/token`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      Accept: 'application/json',
+      Authorization: basicAuthHeader(config),
+    },
     body,
   });
   const text = await res.text();
