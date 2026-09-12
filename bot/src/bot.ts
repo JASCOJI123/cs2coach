@@ -10,6 +10,7 @@
  * The Mini App authenticates independently via Telegram initData (POST
  * /api/auth/telegram), so the bot only needs the webapp URL to deep-link.
  */
+import { createServer, type Server } from 'node:http';
 import { Bot, InlineKeyboard } from 'grammy';
 import { createLogger, loadEnv, type Logger } from '@cs2coach/shared';
 import { getDb, closeDb, findUserByTelegramId, findFaceitAccountByUserId, listMatchesForUser } from '@cs2coach/database';
@@ -18,6 +19,25 @@ const logger: Logger = createLogger('bot');
 
 const DEFAULT_WEBAPP_URL = 'https://jascoji123.github.io/cs2coach/';
 
+function startHealthServer(port: number): Server {
+  const server = createServer((req, res) => {
+    if (req.url === '/health' || req.url === '/') {
+      res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ ok: true, service: 'cs2coach-bot' }));
+      return;
+    }
+
+    res.writeHead(404, { 'content-type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ error: 'not_found' }));
+  });
+
+  server.listen(port, '0.0.0.0', () => {
+    logger.info('health_server_started', { port });
+  });
+
+  return server;
+}
+
 export async function startBot(): Promise<void> {
   const env = loadEnv();
   const token = env.telegramBotToken;
@@ -25,6 +45,10 @@ export async function startBot(): Promise<void> {
     logger.warn('bot_not_started', { reason: 'TELEGRAM_BOT_TOKEN not configured' });
     return;
   }
+
+  // Render Web Services require a listening HTTP port. The bot itself uses
+  // Telegram long polling, so this tiny health endpoint only exists for Render.
+  const healthServer = startHealthServer(env.port);
 
   const db = getDb(env.databaseUrl ?? 'postgresql://localhost:5432/cs2coach');
   // GitHub Pages is the production Mini App host. TELEGRAM_WEBAPP_URL can still
@@ -131,6 +155,7 @@ export async function startBot(): Promise<void> {
   const shutdown = async () => {
     logger.info('bot_shutdown', {});
     await bot.stop();
+    healthServer.close();
     await closeDb();
   };
   process.on('SIGINT', () => void shutdown());
