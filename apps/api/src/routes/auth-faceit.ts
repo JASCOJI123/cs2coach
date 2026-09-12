@@ -2,8 +2,9 @@ import type { FastifyInstance } from 'fastify';
 import { randomBytes } from 'node:crypto';
 import { AppError, codes, encryptSecret, serializeEncrypted } from '@cs2coach/shared';
 import {
+  findFaceitAccountByFaceitUserId,
   findFaceitAccountByUserId,
-  relinkFaceitAccount,
+  upsertFaceitAccountByUser,
   deleteFaceitAccount,
 } from '@cs2coach/database';
 import type { AppConfig } from '../config';
@@ -105,6 +106,13 @@ export async function faceitAuthRoutes(app: FastifyInstance, config: AppConfig):
     }
 
     const existing = await findFaceitAccountByUserId(config.db, pending.userId);
+    const existingByFaceit = await findFaceitAccountByFaceitUserId(config.db, faceitUserId);
+    if (existingByFaceit && existingByFaceit.userId !== pending.userId) {
+      await deleteFaceitAccount(config.db, existingByFaceit.userId);
+      config.logger.info('faceit_previous_link_removed', {
+        previousUserId: existingByFaceit.userId,
+      });
+    }
 
     const accessTokenEnc = serializeEncrypted(encryptSecret(config.env.sessionSecret, tokens.accessToken));
     const refreshTokenEnc = tokens.refreshToken
@@ -112,7 +120,7 @@ export async function faceitAuthRoutes(app: FastifyInstance, config: AppConfig):
       : existing?.refreshToken ?? null;
 
     try {
-      await relinkFaceitAccount(config.db, {
+      await upsertFaceitAccountByUser(config.db, {
         userId: pending.userId,
         faceitUserId,
         nickname: nickname || existing?.nickname || faceitUserId,
@@ -135,9 +143,12 @@ export async function faceitAuthRoutes(app: FastifyInstance, config: AppConfig):
     config.logger.info('faceit_account_saved', { userId: pending.userId });
 
     const handoff = createHandoff(pending.userId);
-    const webappUrl = config.env.telegramWebappUrl ?? 'http://localhost:5173';
     config.logger.info('faceit_oauth_completed', { userId: pending.userId });
-    return reply.redirect(`${webappUrl}#/faceit-callback?handoff=${encodeURIComponent(handoff)}`);
+
+    // OAuth was completed in an external browser. Return through Telegram's
+    // Main Mini App deep link so the user lands back inside Telegram instead
+    // of seeing the GitHub Pages URL in Safari.
+    return reply.redirect(`https://t.me/cs2ustozbot?startapp=${encodeURIComponent(handoff)}`);
   });
 
   app.post('/api/auth/faceit/callback-session', async (request, reply) => {
