@@ -22,6 +22,10 @@ export interface FaceitStatus {
   connected: boolean;
   nickname?: string;
   faceitUserId?: string;
+  avatar?: string | null;
+  country?: string | null;
+  skillLevel?: number | null;
+  elo?: number | null;
 }
 
 export interface MatchLite {
