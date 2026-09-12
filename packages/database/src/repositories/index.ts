@@ -502,3 +502,5 @@ export async function upsertTrainingPlan(
 }
 
 export type { BuyType };
+
+export { syncFaceitPlayerHistory } from './faceit-history';
