@@ -23,7 +23,6 @@ export async function buildServer(config: AppConfig = createAppConfig()): Promis
   const logger = config.logger;
   const app = Fastify({ logger: false, trustProxy: true });
 
-  // ── CORS (spec §41) ─────────────────────────────────────────────────────────
   const origins = config.env.allowedOrigins;
   await app.register(cors, {
     origin(origin, cb) {
@@ -36,17 +35,13 @@ export async function buildServer(config: AppConfig = createAppConfig()): Promis
     credentials: true,
   });
 
-  // ── Rate limiting (spec §44) ────────────────────────────────────────────────
   await app.register(rateLimit, {
     max: 120,
     timeWindow: '1 minute',
   });
 
-  // ── WebSockets (spec §32) ──────────────────────────────────────────────────
   await app.register(websocket);
 
-  // ── Routes ──────────────────────────────────────────────────────────────────
-  // Root route: friendly service info so / is not a bare 404 in a browser.
   app.get('/', async (_request, reply) => {
     return reply.send({
       ok: true,
@@ -75,15 +70,22 @@ export async function buildServer(config: AppConfig = createAppConfig()): Promis
   const wsManager = new WebSocketManager(logger);
   await wsRoutes(app, config, wsManager);
 
-  // ── Error handling (spec §38) ───────────────────────────────────────────────
   app.setErrorHandler((error, request, reply) => {
-    const status = isAppError(error) ? (error.status ?? 500) : 500;
+    const status = isAppError(error)
+      ? (error.status ?? 500)
+      : (typeof (error as { statusCode?: unknown }).statusCode === 'number'
+        ? Number((error as { statusCode: number }).statusCode)
+        : 500);
     const body = toErrorBody(error);
-    logger.warn('request_error', { path: request.url, status, code: body.code });
+    logger.warn('request_error', {
+      path: request.url,
+      status,
+      code: body.code,
+      error: error instanceof Error ? error.message : String(error),
+    });
     reply.status(status).send(body);
   });
 
-  // ── Graceful shutdown ───────────────────────────────────────────────────────
   const shutdown = async (signal: string) => {
     logger.info('shutdown', { signal });
     config.faceitMatchProvider.stopAll();
@@ -97,13 +99,10 @@ export async function buildServer(config: AppConfig = createAppConfig()): Promis
   return app;
 }
 
-// Start server when run directly (not imported)
 const isMain = require.main === module;
 if (isMain) {
   void (async () => {
     const config = createAppConfig();
-    // Apply any pending schema migrations on boot (idempotent SQL). DB is
-    // optional in dev/demo, so a failure here must not kill the server.
     if (config.env.databaseUrl) {
       await runMigrations(config.db)
         .then((names) => {
@@ -119,7 +118,6 @@ if (isMain) {
       nodeEnv: config.env.nodeEnv,
       demoMode: config.env.isDemoMode,
     });
-    // Startup DB ping so failures surface early
     await config.pingDb().catch(() => config.logger.warn('initial_db_ping_failed', {}));
   })().catch((err) => {
     const logger = createLogger('api');
