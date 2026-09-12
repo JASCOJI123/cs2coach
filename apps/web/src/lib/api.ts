@@ -93,7 +93,7 @@ export const api = {
 
   connectFaceit: () => request<{ url: string }>('/api/auth/faceit'),
 
-  disconnectFaceit: () => request<void>('/api/auth/faceit', { method: 'DELETE' }),
+  disconnectFaceit: () => request<void>('/api/auth/faceit/disconnect', { method: 'POST' }),
 
   listMatches: () => request<MatchLite[]>('/api/matches'),
 
