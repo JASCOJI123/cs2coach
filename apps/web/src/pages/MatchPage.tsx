@@ -6,86 +6,76 @@ import { TacticalHud } from '../components/TacticalHud';
 import { LiveScore } from '../components/LiveScore';
 import type { MatchStateLite, TacticalDecisionLite } from '../lib/types';
 
-interface Props {
-  faceitMatchId: string;
-}
+interface Props { faceitMatchId: string; }
 
 export default function MatchPage({ faceitMatchId }: Props) {
   const [state, setState] = useState<MatchStateLite | null>(null);
   const [decision, setDecision] = useState<TacticalDecisionLite | null>(null);
   const [connected, setConnected] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [asking, setAsking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const tokenRef = useRef('');
 
-  useEffect(() => {
+  const loadMatch = useCallback(async () => {
     try {
-      tokenRef.current = authTokenOrThrow();
+      const match = await api.getMatch(faceitMatchId);
+      if (match.live) setState(match.live);
+      else setState(null);
+      setError(null);
     } catch (err) {
-      setError((err as Error).message);
-      return;
+      setError((err as Error).message || 'Match maʼlumotini yuklab bo‘lmadi');
+    } finally {
+      setLoading(false);
     }
+  }, [faceitMatchId]);
 
-    // Initial fetch
-    void (async () => {
-      try {
-        const match = await api.getMatch(faceitMatchId);
-        if (match.live) setState(match.live);
-      } catch (err) {
-        setError((err as Error).message);
-      }
-    })();
+  useEffect(() => {
+    try { tokenRef.current = authTokenOrThrow(); }
+    catch (err) { setError((err as Error).message); setLoading(false); return; }
 
-    // WS subscribe
+    void loadMatch();
     const close = openLiveCoach(faceitMatchId, tokenRef.current, {
-      onState: (s) => setState(s),
+      onState: (s) => { setState(s); setLoading(false); setError(null); },
       onDecision: (d) => setDecision(d),
       onConnection: (c) => setConnected(c),
     });
     return () => close();
-  }, [faceitMatchId]);
+  }, [faceitMatchId, loadMatch]);
 
-  // REST fallback poll (keeps the HUD live if the socket drops)
   const poll = useCallback(async () => {
-    try {
-      const match = await api.getMatch(faceitMatchId);
-      if (match.live) setState(match.live);
-    } catch {
-      /* wait for next tick */
-    }
-  }, [faceitMatchId]);
+    if (!connected) await loadMatch();
+  }, [connected, loadMatch]);
 
   useEffect(() => {
-    const timer = window.setInterval(() => {
-      if (!connected) void poll();
-    }, 8000);
+    const timer = window.setInterval(() => void poll(), 8000);
     return () => window.clearInterval(timer);
-  }, [connected, poll]);
+  }, [poll]);
 
   const askCoach = async () => {
-    try {
-      const d = await api.requestCoach(faceitMatchId);
-      setDecision(d);
-    } catch {
-      /* the WS push will deliver it */
-    }
+    if (asking) return;
+    setAsking(true); setError(null);
+    try { setDecision(await api.requestCoach(faceitMatchId)); }
+    catch (err) { setError((err as Error).message || 'Coach hozir javob bera olmaydi'); }
+    finally { setAsking(false); }
   };
+
+  if (loading) return <main className="panel match"><header className="topbar"><button className="back" onClick={() => navigate('matches')}>‹</button><h1>Live Coach</h1></header><div className="waiting-card"><div className="spinner" /><h2>Match yuklanmoqda…</h2><p className="muted">FACEIT maʼlumotlari olinmoqda.</p></div></main>;
 
   return (
     <main className="panel match">
-      <header className="topbar">
-        <button className="back" onClick={() => navigate('matches')}>‹</button>
-        <h1>Live Coach</h1>
-      </header>
-
-      {error && !state && <p className="error-banner">{error}</p>}
-
-      {state && (
-        <>
-          <LiveScore state={state} />
-          <TacticalHud state={state} decision={decision} connected={connected} />
-          <button className="secondary" onClick={askCoach} style={{ marginTop: 12 }}>Ask the coach now</button>
-        </>
-      )}
+      <header className="topbar"><button className="back" onClick={() => navigate('matches')}>‹</button><h1>Live Coach</h1><span className={`connection-dot ${connected ? 'online' : ''}`}>{connected ? 'LIVE' : 'SYNC'}</span></header>
+      {error && <p className="error-banner">{error}</p>}
+      {state ? <>
+        <LiveScore state={state} />
+        <TacticalHud state={state} decision={decision} connected={connected} />
+        <button className="primary" onClick={() => void askCoach()} disabled={asking} style={{ marginTop: 12 }}>{asking ? 'Coach analiz qilmoqda…' : '🤖 Ask AI Coach'}</button>
+      </> : <section className="card empty-match">
+        <div className="logo-mark small">◆</div>
+        <h2>Live data hali mavjud emas</h2>
+        <p className="muted">Bu match tarixdan topildi, lekin hozircha real-time game state mavjud emas. Match davomida live data kelishi bilan shu yerda avtomatik ko‘rinadi.</p>
+        <button className="secondary" onClick={() => void loadMatch()}>↻ Qayta tekshirish</button>
+      </section>}
     </main>
   );
 }
