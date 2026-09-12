@@ -17,9 +17,9 @@ export default function Home() {
   const pollStartedAt = useRef(0);
 
   const logout = () => {
-    if (!window.confirm('Chiqishni xohlaysizmi?')) return;
     clearAuthToken();
-    navigate('splash');
+    window.location.hash = '/splash';
+    window.location.reload();
   };
 
   const refreshFaceit = async (): Promise<boolean> => {
