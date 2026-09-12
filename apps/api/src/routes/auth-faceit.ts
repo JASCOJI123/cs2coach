@@ -32,11 +32,17 @@ export async function faceitAuthRoutes(app: FastifyInstance, config: AppConfig):
     const { state, codeVerifier, codeChallenge } = config.faceitOAuth.randomOAuthState(PENDING_TTL_MS);
     pendingStates.set(state, { userId: user.userId, exp: Date.now() + PENDING_TTL_MS, codeVerifier });
     const url = config.faceitOAuth.buildAuthorizeUrl(config.faceitOAuth.oauthConfig, state, codeChallenge);
+    config.logger.info('faceit_oauth_started', { userId: user.userId });
     return reply.send({ ok: true, data: { url } });
   });
 
   app.get('/api/auth/faceit/callback', async (request, reply) => {
     const q = request.query as { state?: string; code?: string; error?: string; error_description?: string };
+    config.logger.info('faceit_oauth_callback_received', {
+      hasCode: Boolean(q.code),
+      hasState: Boolean(q.state),
+      hasError: Boolean(q.error),
+    });
     if (q.error) throw new AppError(codes.upstreamError, `FACEIT authorization failed: ${q.error_description ?? q.error}`, 400);
     if (!q.code || !q.state) throw new AppError(codes.badRequest, 'code and state are required', 400);
     if (!config.env.faceitClientId || !config.env.faceitClientSecret) {
@@ -51,6 +57,11 @@ export async function faceitAuthRoutes(app: FastifyInstance, config: AppConfig):
     pendingStates.delete(q.state);
 
     const tokens = await config.faceitOAuth.exchangeCodeForToken(q.code, pending.codeVerifier);
+    config.logger.info('faceit_oauth_token_received', {
+      hasAccessToken: Boolean(tokens.accessToken),
+      hasRefreshToken: Boolean(tokens.refreshToken),
+      hasIdToken: Boolean(tokens.idToken),
+    });
     const faceitUserId = config.faceitOAuth.extractFaceitUserIdFromIdToken(tokens.idToken ?? '');
     if (!faceitUserId) throw new AppError(codes.upstreamError, 'FACEIT did not return a user id', 400);
 
@@ -66,7 +77,9 @@ export async function faceitAuthRoutes(app: FastifyInstance, config: AppConfig):
       country = profile.country ?? null;
       skillLevel = profile.games?.cs2?.skill_level ?? null;
       elo = profile.games?.cs2?.faceit_elo ?? null;
-    } catch {
+      config.logger.info('faceit_profile_loaded', { hasNickname: Boolean(nickname) });
+    } catch (err) {
+      config.logger.warn('faceit_profile_load_failed', { error: err instanceof Error ? err.message : String(err) });
       // OAuth linking remains successful even if the optional public profile lookup fails.
     }
 
@@ -89,9 +102,11 @@ export async function faceitAuthRoutes(app: FastifyInstance, config: AppConfig):
       refreshToken: refreshTokenEnc,
       expiresAtMs: tokens.expiresAtMs,
     });
+    config.logger.info('faceit_account_saved', { userId: pending.userId });
 
     const handoff = createHandoff(pending.userId);
     const webappUrl = config.env.telegramWebappUrl ?? 'http://localhost:5173';
+    config.logger.info('faceit_oauth_completed', { userId: pending.userId });
     return reply.redirect(`${webappUrl}#/faceit-callback?handoff=${encodeURIComponent(handoff)}`);
   });
 
