@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { api, clearAuthToken } from '../lib/api';
+import { api } from '../lib/api';
 import { getTelegramWebApp } from '../lib/telegram';
 import { navigate } from '../App';
-import { markLoggedOut } from './Splash';
 import type { FaceitStatus, MatchLite } from '../lib/types';
 
 const FACEIT_POLL_MS = 1500;
@@ -18,23 +17,21 @@ export default function Home() {
   const pollTimer = useRef<number | null>(null);
   const pollStartedAt = useRef(0);
 
-  const logout = async () => {
+  const disconnect = async () => {
+    if (disconnecting) return;
     setDisconnecting(true);
     setNotice(null);
     try {
       await api.disconnectFaceit();
+      setFaceit({ connected: false });
+      setMatches([]);
+      setNotice('FACEIT akkaunt uzildi.');
     } catch (err) {
-      const status = (err as { status?: number }).status;
-      if (status !== 404 && status !== 401) {
-        setNotice((err as Error).message);
-        setDisconnecting(false);
-        return;
-      }
+      const error = err as { message?: string; status?: number; code?: string };
+      setNotice(error.message || `FACEITdan chiqishda xato (${error.status ?? 500})`);
+    } finally {
+      setDisconnecting(false);
     }
-    clearAuthToken();
-    markLoggedOut();
-    window.location.hash = '/splash';
-    window.location.reload();
   };
 
   const refreshFaceit = async (): Promise<boolean> => {
@@ -54,7 +51,8 @@ export default function Home() {
         setFaceit(fs);
         setMatches(ms);
       } catch (err) {
-        setNotice((err as Error).message);
+        const error = err as { message?: string };
+        setNotice(error.message ?? 'Maʼlumotlarni yuklashda xato');
       } finally {
         setBusy(false);
       }
@@ -100,7 +98,8 @@ export default function Home() {
       pollStartedAt.current = Date.now();
       void pollFaceitStatus();
     } catch (err) {
-      setNotice((err as Error).message);
+      const error = err as { message?: string };
+      setNotice(error.message ?? 'FACEIT ulashda xato');
       setConnecting(false);
     }
   };
@@ -111,9 +110,11 @@ export default function Home() {
     <main className="panel home">
       <header className="topbar">
         <h1>Coach</h1>
-        <button className="logout-btn" onClick={() => void logout()} disabled={disconnecting} type="button">
-          {disconnecting ? 'Chiqilmoqda…' : 'Chiqish'}
-        </button>
+        {faceit?.connected && (
+          <button className="logout-btn" onClick={() => void disconnect()} disabled={disconnecting} type="button">
+            {disconnecting ? 'Uzilmoqda…' : 'FACEITdan chiqish'}
+          </button>
+        )}
       </header>
       {notice && <p className="error-banner">{notice}</p>}
 
@@ -128,6 +129,9 @@ export default function Home() {
             {faceit.elo != null && <p className="muted">ELO: <strong>{faceit.elo}</strong></p>}
             <p className="muted">FACEIT ID: <strong>{faceit.faceitUserId}</strong></p>
             <p className="muted">Live coaching is available during your matches.</p>
+            <button className="secondary" onClick={() => void disconnect()} disabled={disconnecting} type="button">
+              {disconnecting ? 'FACEIT uzilmoqda…' : 'FACEIT akkauntni uzish'}
+            </button>
           </>
         ) : (
           <>
