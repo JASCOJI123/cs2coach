@@ -11,9 +11,17 @@ import { AppError, codes } from '@cs2coach/shared';
 import { upsertUser } from '@cs2coach/database';
 import type { AppConfig } from '../config';
 
-const INIT_DATA_ORDER = ['auth_date', 'first_name', 'hash', 'id', 'last_name', 'photo_url', 'query_id', 'username'];
-
-type InitDataRecord = Record<string, string>;
+/**
+ * Telegram initData fields we consume. The authoritative user identity lives
+ * inside the URL-encoded `user` JSON object, not as a top-level parameter.
+ */
+interface InitDataRecord {
+  id: string;
+  first_name?: string;
+  username?: string;
+  auth_date: string;
+  hash: string;
+}
 
 export async function telegramAuthRoutes(app: FastifyInstance, config: AppConfig): Promise<void> {
   app.post('/api/auth/telegram', async (request, reply) => {
@@ -27,7 +35,7 @@ export async function telegramAuthRoutes(app: FastifyInstance, config: AppConfig
     if (!parsed) {
       throw new AppError(codes.invalidTelegramInitData, 'Invalid initData format', 400);
     }
-    if (typeof parsed.id !== 'string' || !/^\d+$/.test(parsed.id)) {
+    if (!/^\d+$/.test(parsed.id)) {
       throw new AppError(codes.invalidTelegramInitData, 'initData missing numeric id', 400);
     }
 
@@ -61,37 +69,49 @@ export async function telegramAuthRoutes(app: FastifyInstance, config: AppConfig
   });
 }
 
-/** Parse Telegram initData fields and return a flat record. */
+/**
+ * Parse Telegram initData. The numeric user id and profile fields arrive as a
+ * URL-encoded JSON blob under the `user` key, e.g.
+ *   query_id=AAH...&user={"id":7080911448,"first_name":"Jasco"}&auth_date=...&hash=...
+ */
 export function parseInitData(initData: string): InitDataRecord | null {
   try {
     const params = new URLSearchParams(initData);
-    const record: Record<string, string> = {};
-    for (const [key, value] of params.entries()) {
-      if (typeof value === 'string') record[key] = value;
-    }
-    if (typeof record.hash !== 'string' || typeof record.auth_date !== 'string') {
-      return null;
-    }
-    return record;
+    const hash = params.get('hash');
+    const authDate = params.get('auth_date');
+    const userRaw = params.get('user');
+    if (!hash || !authDate || !userRaw) return null;
+    const user = JSON.parse(userRaw) as Record<string, unknown>;
+    const id = user.id;
+    if (typeof id !== 'string' && typeof id !== 'number') return null;
+    return {
+      id: String(id),
+      first_name: typeof user.first_name === 'string' ? user.first_name : undefined,
+      username: typeof user.username === 'string' ? user.username : undefined,
+      auth_date: authDate,
+      hash,
+    };
   } catch {
     return null;
   }
 }
 
-/** Verify the initData signature per the Telegram WebApp algorithm. */
+/**
+ * Verify the initData signature per the Telegram WebApp algorithm
+ * (https://core.telegram.org/bots/webapps#validating-data-received-via-the-mini-app):
+ * sort all fields except `hash` alphabetically, join as `key=value` lines, then
+ * HMAC-SHA256 with a secret derived from the bot token.
+ */
 export function verifyTelegramInitData(botToken: string, initData: string): boolean {
   try {
     const params = new URLSearchParams(initData);
-    const fields: string[] = [];
     const hash = params.get('hash');
     if (!hash) return false;
     params.delete('hash');
-    for (const key of INIT_DATA_ORDER) {
-      const value = params.get(key);
-      if (value !== null) fields.push(`${key}=${value}`);
-    }
-    // Deterministic join in fixed order
-    const dataCheckString = fields.join('\n');
+    const dataCheckString = [...params.entries()]
+      .map(([key, value]) => `${key}=${value}`)
+      .sort()
+      .join('\n');
     const secret = createHmac('sha256', 'WebAppData').update(botToken).digest();
     const expected = createHmac('sha256', secret).update(dataCheckString).digest('hex');
     return timingSafeEqualHex(hash, expected);
