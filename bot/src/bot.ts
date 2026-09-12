@@ -33,8 +33,11 @@ export async function startBot(): Promise<void> {
 
   const bot = new Bot(token);
 
+  // Telegram appends its own `?startapp=` when a user taps a web_app button;
+  // pre-adding a query param here makes some WebViews choke on the URL and show
+  // "load failed". Keep the button URL clean.
   const openCoachKeyboard = () =>
-    new InlineKeyboard().webApp('🎮 OPEN AI COACH', `${webappUrl}?startapp=coach`);
+    new InlineKeyboard().webApp('🎮 OPEN AI COACH', webappUrl);
 
   // Keep Telegram's bot menu button pointed at the production Mini App too.
   // Failures here must not block the bot from starting.
