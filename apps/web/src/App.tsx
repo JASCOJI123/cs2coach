@@ -4,6 +4,7 @@ import Home from './pages/Home';
 import Matches from './pages/Matches';
 import MatchPage from './pages/MatchPage';
 import FaceitCallback from './pages/FaceitCallback';
+import { hasAuthToken } from './lib/api';
 
 export type Route = 'splash' | 'home' | 'matches' | 'match' | 'faceit-callback';
 
@@ -41,6 +42,10 @@ export default function App() {
   }, []);
 
   const current = useMemo(() => parseHash(), [hash]);
+
+  if (current.route !== 'splash' && current.route !== 'faceit-callback' && !hasAuthToken()) {
+    return <Splash />;
+  }
 
   switch (current.route) {
     case 'home':
