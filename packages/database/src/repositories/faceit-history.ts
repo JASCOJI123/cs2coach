@@ -1,7 +1,19 @@
 import type { Sql } from 'postgres';
 import type { MatchStatus } from '@cs2coach/shared';
-import type { FaceitMatchListItem } from '@cs2coach/faceit';
 import { addMatchPlayer, upsertMatchFromFaceit, upsertPlayer } from './index';
+
+interface FaceitHistoryItem {
+  match_id: string;
+  game?: string;
+  competition_id?: string;
+  competition_name?: string;
+  status?: string;
+  started_at?: number;
+  finished_at?: number;
+  teams?: Record<string, { members?: Array<{ player_id: string }> }>;
+  results?: { score?: { faction1?: number; faction2?: number } };
+  details?: { map?: string };
+}
 
 const MATCH_STATUSES = new Set<MatchStatus>([
   'scheduled',
@@ -13,7 +25,7 @@ const MATCH_STATUSES = new Set<MatchStatus>([
   'cancelled',
 ]);
 
-function normalizeStatus(item: FaceitMatchListItem): MatchStatus {
+function normalizeStatus(item: FaceitHistoryItem): MatchStatus {
   const raw = String(item.status ?? '').toLowerCase();
   if (MATCH_STATUSES.has(raw as MatchStatus)) return raw as MatchStatus;
   if (raw.includes('cancel')) return 'cancelled';
@@ -25,7 +37,7 @@ function normalizeStatus(item: FaceitMatchListItem): MatchStatus {
   return 'finished';
 }
 
-function playerTeam(item: FaceitMatchListItem, playerId: string): 'A' | 'B' {
+function playerTeam(item: FaceitHistoryItem, playerId: string): 'A' | 'B' {
   const factions = Object.values(item.teams ?? {});
   const index = factions.findIndex((faction) =>
     faction.members?.some((member) => member.player_id === playerId),
@@ -33,11 +45,6 @@ function playerTeam(item: FaceitMatchListItem, playerId: string): 'A' | 'B' {
   return index === 1 ? 'B' : 'A';
 }
 
-/**
- * Persists FACEIT history rows and links each match to the authenticated player.
- * This keeps the existing match list query DB-backed while making FACEIT history
- * the source of truth for recent matches.
- */
 export async function syncFaceitPlayerHistory(
   sql: Sql,
   input: {
@@ -47,7 +54,7 @@ export async function syncFaceitPlayerHistory(
     country?: string | null;
     skillLevel?: number | null;
     elo?: number | null;
-    items: FaceitMatchListItem[];
+    items: FaceitHistoryItem[];
   },
 ): Promise<void> {
   const player = await upsertPlayer(sql, {
