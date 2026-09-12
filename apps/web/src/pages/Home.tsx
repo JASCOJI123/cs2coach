@@ -38,7 +38,6 @@ export default function Home() {
         setBusy(false);
       }
     })();
-
     return () => {
       if (pollTimer.current !== null) window.clearTimeout(pollTimer.current);
     };
@@ -74,15 +73,9 @@ export default function Home() {
     setConnecting(true);
     try {
       const { url } = await api.connectFaceit();
-      // Keep the Mini App open while FACEIT runs in the external browser.
-      // The original Mini App session is not shared with that browser, so the
-      // Mini App polls the server until the FACEIT account is saved.
       const tgApp = getTelegramWebApp();
-      if (tgApp?.openLink) {
-        tgApp.openLink(url);
-      } else {
-        window.open(url, '_blank');
-      }
+      if (tgApp?.openLink) tgApp.openLink(url);
+      else window.open(url, '_blank');
       pollStartedAt.current = Date.now();
       void pollFaceitStatus();
     } catch (err) {
@@ -95,26 +88,26 @@ export default function Home() {
 
   return (
     <main className="panel home">
-      <header className="topbar">
-        <h1>Coach</h1>
-      </header>
-
+      <header className="topbar"><h1>Coach</h1></header>
       {notice && <p className="error-banner">{notice}</p>}
 
       <section className="card">
         {faceit?.connected ? (
           <>
             <h2>FACEIT connected</h2>
+            {faceit.avatar && <img src={faceit.avatar} alt="FACEIT avatar" style={{ width: 64, height: 64, borderRadius: '50%', objectFit: 'cover' }} />}
             <p className="muted">Nickname: <strong>{faceit.nickname}</strong></p>
+            {faceit.country && <p className="muted">Country: <strong>{faceit.country.toUpperCase()}</strong></p>}
+            {faceit.skillLevel != null && <p className="muted">Skill level: <strong>{faceit.skillLevel}</strong></p>}
+            {faceit.elo != null && <p className="muted">ELO: <strong>{faceit.elo}</strong></p>}
+            <p className="muted">FACEIT ID: <strong>{faceit.faceitUserId}</strong></p>
             <p className="muted">Live coaching is available during your matches.</p>
           </>
         ) : (
           <>
             <h2>Connect your FACEIT</h2>
             <p className="muted">The coach reads real match state and suggests tactics. No data is ever faked.</p>
-            <button className="primary" onClick={connect} disabled={connecting}>
-              {connecting ? 'Waiting for FACEIT…' : 'Connect FACEIT'}
-            </button>
+            <button className="primary" onClick={connect} disabled={connecting}>{connecting ? 'Waiting for FACEIT…' : 'Connect FACEIT'}</button>
           </>
         )}
       </section>
@@ -128,9 +121,7 @@ export default function Home() {
             {matches.map((m) => (
               <li key={m.id}>
                 <button className="row-btn" onClick={() => navigate('match', m.faceitMatchId)}>
-                  <span>{m.map ?? 'unknown'}</span>
-                  <span>{m.score.a}:{m.score.b}</span>
-                  <span className="pill">{m.status}</span>
+                  <span>{m.map ?? 'unknown'}</span><span>{m.score.a}:{m.score.b}</span><span className="pill">{m.status}</span>
                 </button>
               </li>
             ))}
