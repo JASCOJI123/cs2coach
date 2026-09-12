@@ -1,6 +1,7 @@
 /**
  * Typed REST client (spec §37). All calls carry the Bearer JWT minted by
- * POST /api/auth/telegram. Errors surface as ApiEnvelope failures.
+ * POST /api/auth/telegram. The token is persisted so a Mini App reload and
+ * the FACEIT OAuth round-trip do not silently lose authentication.
  */
 import type {
   ApiEnvelope,
@@ -22,13 +23,39 @@ export class ApiError extends Error {
   }
 }
 
+const AUTH_STORAGE_KEY = 'cs2coach.session.v1';
 let authToken = '';
+
+function loadStoredToken(): string {
+  try {
+    return window.localStorage.getItem(AUTH_STORAGE_KEY) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+authToken = loadStoredToken();
 
 export function setAuthToken(token: string): void {
   authToken = token;
+  try {
+    if (token) window.localStorage.setItem(AUTH_STORAGE_KEY, token);
+    else window.localStorage.removeItem(AUTH_STORAGE_KEY);
+  } catch {
+    // Storage is optional; the in-memory token still works for this session.
+  }
+}
+
+export function clearAuthToken(): void {
+  setAuthToken('');
+}
+
+export function hasAuthToken(): boolean {
+  return Boolean(authToken || loadStoredToken());
 }
 
 export function authTokenOrThrow(): string {
+  if (!authToken) authToken = loadStoredToken();
   if (!authToken) throw new ApiError('Not authenticated', 401);
   return authToken;
 }
@@ -39,12 +66,14 @@ export const apiUrl = (path: string): string =>
   (import.meta.env.VITE_API_URL || productionApiUrl) + path;
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  if (!authToken) authToken = loadStoredToken();
   const headers: Record<string, string> = { 'content-type': 'application/json', ...(init.headers as Record<string, string>) };
   if (authToken) headers.authorization = `Bearer ${authToken}`;
 
   const res = await fetch(apiUrl(path), { ...init, headers });
   const body = (await res.json().catch(() => null)) as ApiEnvelope<T> | null;
   if (!res.ok || !body?.ok) {
+    if (res.status === 401) clearAuthToken();
     throw new ApiError(body?.message ?? `Request failed (${res.status})`, res.status, body?.error);
   }
   return (body as { data: T }).data;
@@ -53,6 +82,12 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 export const api = {
   login: (initData: string) =>
     request<AuthResult>('/api/auth/telegram', { method: 'POST', body: JSON.stringify({ initData }) }),
+
+  exchangeFaceitHandoff: (handoff: string) =>
+    request<AuthResult>('/api/auth/faceit/callback-session', {
+      method: 'POST',
+      body: JSON.stringify({ handoff }),
+    }),
 
   faceitStatus: () => request<FaceitStatus>('/api/auth/faceit/status'),
 
