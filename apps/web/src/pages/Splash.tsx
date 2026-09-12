@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api, setAuthToken } from '../lib/api';
+import { api, clearAuthToken, hasAuthToken, setAuthToken } from '../lib/api';
 import { getInitData } from '../lib/telegram';
 import { navigate } from '../App';
 
@@ -8,19 +8,33 @@ export default function Splash() {
   const [busy, setBusy] = useState(true);
 
   useEffect(() => {
-    const initData = getInitData();
-    if (!initData) {
-      setError('Open this app from the Telegram bot via "OPEN AI COACH".');
-      setBusy(false);
-      return;
-    }
     void (async () => {
       try {
+        // A persisted JWT survives Mini App reloads and the FACEIT OAuth
+        // browser round-trip. Validate it against the API before using it.
+        if (hasAuthToken()) {
+          try {
+            await api.faceitStatus();
+            navigate('home');
+            return;
+          } catch (err) {
+            if ((err as { status?: number }).status !== 401) throw err;
+            clearAuthToken();
+          }
+        }
+
+        const initData = getInitData();
+        if (!initData) {
+          setError('Open this app from the Telegram bot via "OPEN AI COACH".');
+          return;
+        }
+
         const auth = await api.login(initData);
         setAuthToken(auth.token);
         navigate('home');
       } catch (err) {
         setError((err as Error).message);
+      } finally {
         setBusy(false);
       }
     })();
