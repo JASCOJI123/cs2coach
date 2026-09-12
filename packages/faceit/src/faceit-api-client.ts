@@ -11,6 +11,7 @@ import type {
   FaceitMatchListItem,
   FaceitPlayerHistory,
   FaceitPlayerCore,
+  FaceitPlayerSearchResponse,
 } from './types';
 
 export type FetchBody = string | URLSearchParams | null;
@@ -223,8 +224,35 @@ export class FaceitApiClient {
     return this.get<FaceitPlayerCore>('/players', { nickname, game });
   }
 
+  searchPlayers(nickname: string, game = 'cs2'): Promise<FaceitPlayerSearchResponse> {
+    return this.get<FaceitPlayerSearchResponse>('/search/players', { nickname, game, limit: 20 });
+  }
+
   getPlayerById(playerId: string): Promise<FaceitPlayerCore> {
     return this.get<FaceitPlayerCore>(`/players/${encodeURIComponent(playerId)}`);
+  }
+
+  async resolvePlayer(playerId: string, nickname?: string, game = 'cs2'): Promise<FaceitPlayerCore> {
+    try {
+      return await this.getPlayerById(playerId);
+    } catch (error) {
+      if (!nickname) throw error;
+      try {
+        return await this.getPlayerByNickname(nickname, game);
+      } catch {
+        const result = await this.searchPlayers(nickname, game);
+        const exact = result.items.find((item) => item.nickname.toLowerCase() === nickname.toLowerCase());
+        const item = exact ?? result.items[0];
+        if (!item) throw error;
+        return {
+          player_id: item.player_id,
+          nickname: item.nickname,
+          avatar: item.avatar,
+          country: item.country,
+          games: {},
+        };
+      }
+    }
   }
 
   getPlayerMatches(
