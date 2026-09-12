@@ -40,6 +40,16 @@ jobs:
         env:
           VITE_API_URL: https://cs2coach-api.onrender.com
 
+      # Keep the normal URL and publish the same build under a versioned path.
+      # Telegram clients can cache the Mini App entry URL aggressively, so the
+      # bot will use /cs2coach/v2/ to force a fresh document without changing
+      # the app's runtime behavior.
+      - name: Publish versioned Mini App path
+        run: |
+          mkdir -p apps/web/dist/v2
+          cp -R apps/web/dist/assets apps/web/dist/v2/
+          cp apps/web/dist/index.html apps/web/dist/v2/index.html
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
