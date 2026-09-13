@@ -22,17 +22,25 @@ function extractMap(detail: any): string | null {
 }
 
 async function hydrateHistoryMaps(config: AppConfig, items: any[]): Promise<any[]> {
-  return Promise.all(items.map(async (item) => {
-    if (item?.details?.map) return item;
-    try {
-      const detail = await config.faceitClient.getMatchById(item.match_id);
-      const map = extractMap(detail);
-      return map ? { ...item, details: { ...(item.details ?? {}), map } } : item;
-    } catch (error) {
-      config.logger.warn('faceit_match_detail_failed', { matchId: item?.match_id, error: error instanceof Error ? error.message : String(error) });
-      return item;
+  const result = [...items];
+  let next = 0;
+  const worker = async () => {
+    while (true) {
+      const index = next++;
+      if (index >= result.length) return;
+      const item = result[index];
+      if (item?.details?.map || !item?.match_id) continue;
+      try {
+        const detail = await config.faceitClient.getMatchById(item.match_id);
+        const map = extractMap(detail);
+        if (map) result[index] = { ...item, details: { ...(item.details ?? {}), map } };
+      } catch (error) {
+        config.logger.warn('faceit_match_detail_failed', { matchId: item?.match_id, error: error instanceof Error ? error.message : String(error) });
+      }
     }
-  }));
+  };
+  await Promise.all(Array.from({ length: Math.min(4, result.length) }, () => worker()));
+  return result;
 }
 
 export async function matchesRoutes(app: FastifyInstance, config: AppConfig): Promise<void> {
