@@ -2,13 +2,11 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { getTelegramWebApp, initTelegram } from './lib/telegram';
 import App from './App';
+import { I18nProvider } from './lib/i18n';
 import './styles.css';
 
 initTelegram();
 
-// FACEIT OAuth now returns directly to the Mini App URL with a one-time
-// handoff query parameter. Convert it into the existing internal callback
-// route before React mounts. Keep startapp support for older OAuth sessions.
 const telegramStartParam = getTelegramWebApp()?.initDataUnsafe?.start_param ?? '';
 const browserParams = new URLSearchParams(window.location.search);
 const directHandoff = browserParams.get('faceit_handoff') ?? '';
@@ -21,6 +19,6 @@ if (handoff && !window.location.hash.includes('faceit-callback')) {
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <App />
+    <I18nProvider><App /></I18nProvider>
   </React.StrictMode>
 );
