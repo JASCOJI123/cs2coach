@@ -3,14 +3,19 @@ import { AppError, codes } from '@cs2coach/shared';
 import { findFaceitAccountByUserId, getMatchByFaceitId } from '@cs2coach/database';
 import type { AppConfig } from '../config';
 import { requireAuth } from '../middleware/telegram-auth';
+import { userOwnsMatch } from './matches';
 
 export async function matchStatsRoutes(app: FastifyInstance, config: AppConfig): Promise<void> {
   app.get('/api/matches/:faceitMatchId/stats', { preHandler: await requireAuth(config) }, async (request, reply) => {
-    const faceitMatchId=(request.params as {faceitMatchId:string}).faceitMatchId;
-    const user=request.authedUser!; const account=await findFaceitAccountByUserId(config.db,user.userId);
-    const match=await getMatchByFaceitId(config.db,faceitMatchId);
-    if(!match||!account) throw new AppError(codes.notFound,'Match not found',404);
-    const rows=await config.db`
+    const faceitMatchId = (request.params as { faceitMatchId: string }).faceitMatchId;
+    const user = request.authedUser!;
+    const account = await findFaceitAccountByUserId(config.db, user.userId);
+    const match = await getMatchByFaceitId(config.db, faceitMatchId);
+    if (!match || !account || !(await userOwnsMatch(config, user.userId, match.id))) {
+      throw new AppError(codes.notFound, 'Match not found', 404);
+    }
+
+    const rows = await config.db`
       SELECT p.nickname,p.faceit_player_id,p.avatar,p.skill_level,p.elo,mp.team,
         COALESCE(ps.kills,mp.kills,0) kills,COALESCE(ps.deaths,mp.deaths,0) deaths,COALESCE(ps.assists,mp.assists,0) assists,
         ps.adr,ps.kast,ps.rating,COALESCE(ps.opening_kills,0) opening_kills,COALESCE(ps.opening_deaths,0) opening_deaths,
@@ -20,8 +25,17 @@ export async function matchStatsRoutes(app: FastifyInstance, config: AppConfig):
       FROM match_players mp JOIN players p ON p.id=mp.player_id
       LEFT JOIN player_statistics ps ON ps.match_id=mp.match_id AND ps.player_id=mp.player_id
       WHERE mp.match_id=${match.id} ORDER BY ps.rating DESC NULLS LAST,ps.kills DESC`;
-    const playerRows=rows as Array<Record<string,unknown>>;
-    const mine=playerRows.find(r=>r.faceit_player_id===account.faceitUserId)??null;
-    return reply.send({ok:true,data:{matchId:faceitMatchId,score:{a:match.scoreA,b:match.scoreB},status:match.status,player:mine,players:playerRows}});
+    const playerRows = rows as Array<Record<string, unknown>>;
+    const mine = playerRows.find((r) => r.faceit_player_id === account.faceitUserId) ?? null;
+    return reply.send({
+      ok: true,
+      data: {
+        matchId: faceitMatchId,
+        score: { a: match.scoreA, b: match.scoreB },
+        status: match.status,
+        player: mine,
+        players: playerRows,
+      },
+    });
   });
 }

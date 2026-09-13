@@ -1,44 +1,32 @@
 /**
- * WebSocket live-coach route (spec §32): subscribe to a match's live state.
- * Clients authenticate via the same Bearer JWT in the query string (browsers
- * cannot set headers on new WebSocket) and receive:
- *   { type: 'match_state', matchId, state }   — full state, on connect + updates
- *   { type: 'ai_decision',  matchId, decision } — new tactical decision
- *   { type: 'ping', ts }                       — heartbeat
+ * WebSocket live-coach route: authenticated users may subscribe only to their
+ * own FACEIT match. Browsers pass the session JWT in the query string.
  */
 import type { FastifyInstance } from 'fastify';
+import { findFaceitAccountByUserId, getMatchByFaceitId } from '@cs2coach/database';
 import type { AppConfig } from '../config';
 import type { WebSocketManager } from '../ws/websocket-manager';
+import { userOwnsMatch } from './matches';
 
 export async function wsRoutes(app: FastifyInstance, config: AppConfig, wsManager: WebSocketManager): Promise<void> {
-  app.get('/ws', { websocket: true }, (socket, request) => {
+  app.get('/ws', { websocket: true }, async (socket, request) => {
     const q = request.query as { matchId?: string; token?: string };
-    const matchId = q.matchId ?? '';
+    const faceitMatchId = q.matchId ?? '';
     const token = q.token ?? '';
-
     const claims = config.verifySession(token);
-    if (!claims) {
-      socket.socket.close(4001, 'unauthorized');
-      return;
-    }
-    if (!matchId) {
-      socket.socket.close(4002, 'missing matchId');
-      return;
-    }
+    if (!claims) { socket.socket.close(4001, 'unauthorized'); return; }
+    if (!faceitMatchId) { socket.socket.close(4002, 'missing matchId'); return; }
+
+    const match = await getMatchByFaceitId(config.db, faceitMatchId).catch(() => null);
+    const account = await findFaceitAccountByUserId(config.db, claims.sub).catch(() => null);
+    const owns = match ? await userOwnsMatch(config, claims.sub, match.id).catch(() => false) : false;
+    if (!account || !match || !owns) { socket.socket.close(4003, 'match not found'); return; }
 
     const clientId = `${claims.sub}-${Date.now().toString(36)}`;
     const ws = socket.socket;
-
-    wsManager.register(clientId, matchId, (payload) => {
-      if (ws.readyState === ws.OPEN) {
-        ws.send(JSON.stringify(payload));
-      }
-    });
-
-    // Send current snapshot immediately
-    const state = config.matchStateEngine.getState(matchId);
-    if (state) wsManager.broadcastState(matchId, state);
-
+    wsManager.register(clientId, faceitMatchId, (payload) => { if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(payload)); });
+    const state = config.matchStateEngine.getState(faceitMatchId);
+    if (state) ws.send(JSON.stringify({ type: 'match_state', matchId: faceitMatchId, state }));
     ws.on('message', () => wsManager.markAlive(clientId));
     ws.on('close', () => wsManager.unregister(clientId));
     ws.on('error', () => wsManager.unregister(clientId));

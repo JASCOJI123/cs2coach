@@ -3,10 +3,14 @@ import { api, setAuthToken } from '../lib/api';
 import { navigate } from '../App';
 
 function readHandoff(): string | null {
-  const raw = window.location.hash.replace(/^#\/?/, '');
-  const [, query = ''] = raw.split('?');
-  const params = new URLSearchParams(query);
-  const value = params.get('handoff');
+  // The API intentionally returns the one-time handoff in the normal query
+  // string. Also accept the hash form for backwards compatibility with old
+  // deployed Mini App URLs.
+  const searchParams = new URLSearchParams(window.location.search);
+  const hash = window.location.hash.replace(/^#\/?/, '');
+  const [, hashQuery = ''] = hash.split('?');
+  const hashParams = new URLSearchParams(hashQuery);
+  const value = searchParams.get('faceit_handoff') ?? hashParams.get('faceit_handoff') ?? searchParams.get('handoff') ?? hashParams.get('handoff');
   return value && /^[a-f0-9]{64}$/.test(value) ? value : null;
 }
 
@@ -18,17 +22,13 @@ export default function FaceitCallback() {
       try {
         const handoff = readHandoff();
         if (!handoff) {
-          // A normal Mini App reload may already have a valid persisted token.
           await api.faceitStatus();
           navigate('home');
           return;
         }
-
         const auth = await api.exchangeFaceitHandoff(handoff);
         setAuthToken(auth.token);
-        // Remove the one-time handoff from both query string and hash before
-        // entering the authenticated app so a refresh cannot replay it.
-        window.history.replaceState(null, '', window.location.pathname);
+        window.history.replaceState(null, '', window.location.pathname + window.location.hash.replace(/([?&])(?:faceit_)?handoff=[a-f0-9]{64}&?/, '$1').replace(/[?&]$/, ''));
         navigate('home');
       } catch (err) {
         setError((err as Error).message);

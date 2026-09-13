@@ -12,6 +12,7 @@ import {
   type Env,
   type Logger,
   type SessionClaims,
+  type MatchState,
 } from '@cs2coach/shared';
 import { getDb, pingDb } from '@cs2coach/database';
 import {
@@ -56,6 +57,8 @@ export interface AppConfig {
   groqClient: GroqClient;
   aiValidator: TacticalAIValidator | null;
   aiCoordinator: AiCoordinator;
+  broadcastState?: (matchId: string, state: MatchState) => void;
+  broadcastDecision?: (matchId: string, decision: unknown) => void;
   signSession: (claims: Omit<SessionClaims, 'iat' | 'exp'>) => string;
   verifySession: (token: string) => SessionClaims | null;
 }
@@ -65,8 +68,6 @@ let singleton: AppConfig | null = null;
 function canonicalFaceitRedirectUri(configured?: string, webappUrl?: string): string {
   const fallback = `${webappUrl ?? 'http://localhost:5173'}/faceit/callback`;
   const value = configured?.trim() || fallback;
-  // The production Render service has one canonical hostname. Normalize the
-  // old typo so a stale Render env value can never send FACEIT back to a dead host.
   return value.replace('cs2-coach-api.onrender.com', 'cs2coach-api.onrender.com');
 }
 
@@ -75,7 +76,6 @@ export function createAppConfig(): AppConfig {
 
   const env = loadEnv();
   const logger = createLogger('api');
-
   const dbUrl = env.databaseUrl;
   if (!dbUrl) logger.warn('no_database_url', { msg: 'DATABASE_URL not set — DB calls will fail' });
   const db = getDb(dbUrl ?? 'postgresql://localhost:5432/cs2coach');
@@ -84,11 +84,7 @@ export function createAppConfig(): AppConfig {
     catch (err) { logger.warn('db_ping_failed', { error: (err as Error).message }); throw err; }
   };
 
-  const faceitClient = new FaceitApiClient({
-    apiKey: env.faceitApiKey ?? '',
-    baseUrl: env.faceitDataBaseUrl,
-    logger,
-  });
+  const faceitClient = new FaceitApiClient({ apiKey: env.faceitApiKey ?? '', baseUrl: env.faceitDataBaseUrl, logger });
   const oauthConfig: OAuthConfig = {
     clientId: env.faceitClientId ?? '',
     clientSecret: env.faceitClientSecret ?? '',
@@ -109,69 +105,27 @@ export function createAppConfig(): AppConfig {
   const opponentModel = new OpponentModel();
   const matchStateEngine = new MatchStateEngine({
     learn: (state, event) => opponentModel.learn(state, event),
-    onStateChange: (matchId, state) => {
-      logger.debug('state_bumped', { matchId, version: state.stateVersion, hash: state.stateHash });
-    },
+    onStateChange: (matchId, state) => logger.debug('state_bumped', { matchId, version: state.stateVersion, hash: state.stateHash }),
   });
-
   const faceitMatchProvider = new FaceitMatchProvider(faceitClient, logger);
   const cs2GameStateProvider = new CS2GameStateProvider(logger);
-
   let demoProvider: DemoGameStateProvider | null = null;
   if (env.isDemoMode) {
-    try {
-      demoProvider = new DemoGameStateProvider({ isDemoMode: true, matchId: `demo-${Date.now()}` }, logger);
-    } catch {
-      // safe — constructor throws if isDemoMode is false
-    }
+    try { demoProvider = new DemoGameStateProvider({ isDemoMode: true, matchId: `demo-${Date.now()}` }, logger); } catch { /* safe */ }
   }
-
-  const groqClient = new GroqClient(
-    {
-      apiKey: env.groqApiKey ?? '',
-      model: env.groqModel,
-    },
-    logger,
-  );
-
-  let aiValidator: TacticalAIValidator | null = null;
+  const groqClient = new GroqClient({ apiKey: env.groqApiKey ?? '', model: env.groqModel }, logger);
+  const aiValidator = groqClient.available ? new TacticalAIValidator(groqClient, logger) : null;
   const aiCoordinator = new AiCoordinator({ cooldownMs: env.groqApiKey ? 12_000 : 0 }, logger);
-
-  if (groqClient.available) {
-    aiValidator = new TacticalAIValidator(groqClient, logger);
-    aiCoordinator.setValidator(async (matchId, state, userTeamId) => {
-      void matchId;
-      try {
-        return await aiValidator!.requestTactical({ state, userTeamId });
-      } catch {
-        return null;
-      }
+  if (aiValidator) {
+    aiCoordinator.setValidator(async (_matchId, state, userTeamId) => {
+      try { return await aiValidator.requestTactical({ state, userTeamId }); } catch { return null; }
     });
   }
-
   const sessionSign = (claims: Omit<SessionClaims, 'iat' | 'exp'>) => {
     const now = Date.now();
     return signSession(env.sessionSecret, { ...claims, iat: now, exp: now + env.sessionTtlMs });
   };
   const sessionVerify = (token: string) => verifySession(env.sessionSecret, token);
-
-  singleton = {
-    env,
-    logger,
-    db,
-    pingDb: ping,
-    faceitClient,
-    faceitOAuth,
-    opponentModel,
-    matchStateEngine,
-    faceitMatchProvider,
-    cs2GameStateProvider,
-    demoProvider,
-    groqClient,
-    aiValidator,
-    aiCoordinator,
-    signSession: sessionSign,
-    verifySession: sessionVerify,
-  };
+  singleton = { env, logger, db, pingDb: ping, faceitClient, faceitOAuth, opponentModel, matchStateEngine, faceitMatchProvider, cs2GameStateProvider, demoProvider, groqClient, aiValidator, aiCoordinator, broadcastState: undefined, broadcastDecision: undefined, signSession: sessionSign, verifySession: sessionVerify };
   return singleton;
 }

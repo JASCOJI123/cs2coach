@@ -4,6 +4,7 @@ import { findFaceitAccountByUserId, getMatchByFaceitId } from '@cs2coach/databas
 import { PostMatchAnalysisService } from '@cs2coach/ai';
 import type { AppConfig } from '../config';
 import { requireAuth } from '../middleware/telegram-auth';
+import { userOwnsMatch } from './matches';
 
 function parseJson(value: unknown): unknown {
   if (typeof value !== 'string') return value;
@@ -16,7 +17,9 @@ export async function matchAnalysisRoutes(app: FastifyInstance, config: AppConfi
     const user = request.authedUser!;
     const account = await findFaceitAccountByUserId(config.db, user.userId);
     const match = await getMatchByFaceitId(config.db, faceitMatchId);
-    if (!match || !account) throw new AppError(codes.notFound, 'Match not found', 404);
+    if (!match || !account || !(await userOwnsMatch(config, user.userId, match.id))) {
+      throw new AppError(codes.notFound, 'Match not found', 404);
+    }
 
     const [analysisRows] = await Promise.all([
       config.db`SELECT post_match_analysis, created_at, updated_at FROM match_analysis WHERE match_id = ${match.id} LIMIT 1`,
@@ -31,7 +34,9 @@ export async function matchAnalysisRoutes(app: FastifyInstance, config: AppConfi
     const user = request.authedUser!;
     const account = await findFaceitAccountByUserId(config.db, user.userId);
     const match = await getMatchByFaceitId(config.db, faceitMatchId);
-    if (!match || !account) throw new AppError(codes.notFound, 'Match not found', 404);
+    if (!match || !account || !(await userOwnsMatch(config, user.userId, match.id))) {
+      throw new AppError(codes.notFound, 'Match not found', 404);
+    }
 
     const [playerRows, roundRows, patternRows] = await Promise.all([
       config.db`
@@ -112,6 +117,7 @@ export async function matchAnalysisRoutes(app: FastifyInstance, config: AppConfi
       await sql`
         INSERT INTO training_plans (user_id, match_id, plan_json)
         VALUES (${user.userId}, ${match.id}, ${sql.json(result.analysis.trainingPlan)})
+        ON CONFLICT (user_id, match_id) DO UPDATE SET plan_json = EXCLUDED.plan_json
       `;
     });
 

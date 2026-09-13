@@ -31,7 +31,8 @@ export async function gameStateGsiRoutes(app: FastifyInstance, config: AppConfig
     const playerRow = await upsertPlayer(config.db, { faceitPlayerId: faceitPlayer.player_id, nickname: faceitPlayer.nickname, avatar: faceitPlayer.avatar, country: faceitPlayer.country, skillLevel: faceitPlayer.games?.cs2?.skill_level, elo: faceitPlayer.games?.cs2?.faceit_elo });
     const factions = Object.values(detail.teams ?? {}) as Array<Record<string, any>>;
     const userFactionIndex = factions.findIndex((f) => (f.roster ?? f.members ?? []).some((p: any) => p.player_id === faceitPlayer.player_id || p.game_player_id === steamId));
-    await addMatchPlayer(config.db, { matchId: match.id, playerId: playerRow.id, team: userFactionIndex === 1 ? 'B' : 'A' });
+    const localTeam = userFactionIndex === 1 ? 'B' : 'A';
+    await addMatchPlayer(config.db, { matchId: match.id, playerId: playerRow.id, team: localTeam });
     const a = teamRef(factions[0]); const b = teamRef(factions[1]); const memory = gsiMemory.get(detail.match_id) ?? { round: 0 }; const events: GameEvent[] = []; const mapName = typeof body.map?.name === 'string' ? body.map.name : detail.details?.map;
     if (!config.matchStateEngine.has(detail.match_id)) events.push({ type: 'match_started', matchId: detail.match_id, ts: Date.now(), map: mapName, teams: { a, b } });
     const round = currentRound(body); const phase = typeof body.round?.phase === 'string' ? body.round.phase : undefined;
@@ -39,11 +40,21 @@ export async function gameStateGsiRoutes(app: FastifyInstance, config: AppConfig
     if (memory.phase !== 'over' && phase === 'over') events.push({ type: 'round_ended', matchId: detail.match_id, ts: Date.now(), round, winner: body.round?.win_team === 'CT' || body.round?.win_team === 'T' ? body.round.win_team : undefined });
     const ctScore = Number(body.map?.team_ct?.score ?? 0); const tScore = Number(body.map?.team_t?.score ?? 0);
     if (Number.isFinite(ctScore) && Number.isFinite(tScore)) { const userIsFactionA = userFactionIndex !== 1; const userSide = body.player?.team === 'T' ? 'T' : 'CT'; const scoreA = userIsFactionA ? (userSide === 'CT' ? ctScore : tScore) : (userSide === 'CT' ? tScore : ctScore); const scoreB = userIsFactionA ? (userSide === 'CT' ? tScore : ctScore) : (userSide === 'CT' ? ctScore : tScore); events.push({ type: 'score_updated', matchId: detail.match_id, ts: Date.now(), scoreA, scoreB }); }
-    const local = body.player ?? {}; const state = local.state ?? {}; const stats = local.match_stats ?? {}; const localTeam = userFactionIndex === 1 ? 'B' : 'A'; const playerRef: FaceitPlayerRef = { faceitPlayerId: faceitPlayer.player_id, nickname: faceitPlayer.nickname, avatar: faceitPlayer.avatar, country: faceitPlayer.country, skillLevel: faceitPlayer.games?.cs2?.skill_level, elo: faceitPlayer.games?.cs2?.faceit_elo };
+    const local = body.player ?? {}; const state = local.state ?? {}; const stats = local.match_stats ?? {}; const playerRef: FaceitPlayerRef = { faceitPlayerId: faceitPlayer.player_id, nickname: faceitPlayer.nickname, avatar: faceitPlayer.avatar, country: faceitPlayer.country, skillLevel: faceitPlayer.games?.cs2?.skill_level, elo: faceitPlayer.games?.cs2?.faceit_elo };
     events.push({ type: 'player_state_updated', matchId: detail.match_id, ts: Date.now(), player: playerRef, team: localTeam, alive: Number(state.health ?? 0) > 0, hp: typeof state.health === 'number' ? state.health : undefined, kills: typeof stats.kills === 'number' ? stats.kills : undefined, deaths: typeof stats.deaths === 'number' ? stats.deaths : undefined, assists: typeof stats.assists === 'number' ? stats.assists : undefined, weapons: weaponNames(local), position: positionOf(local) });
     if (body.bomb?.state === 'planted' || body.bomb?.state === 'defused' || body.bomb?.state === 'exploded') events.push({ type: 'bomb_state', matchId: detail.match_id, ts: Date.now(), planted: body.bomb.state === 'planted', defused: body.bomb.state === 'defused' });
     if (body.map?.phase === 'gameover' && !memory.finished) events.push({ type: 'match_status_finished', matchId: detail.match_id, ts: Date.now() });
-    config.matchStateEngine.applyEvents(events); gsiMemory.set(detail.match_id, { phase, round, finished: body.map?.phase === 'gameover' });
-    return reply.send({ ok: true, data: { matchId: detail.match_id, state: config.matchStateEngine.getState(detail.match_id), receivedAt: Date.now() } });
+    const liveState = config.matchStateEngine.applyEvents(events);
+    if (liveState) {
+      config.broadcastState?.(detail.match_id, liveState);
+      if (liveState.gameDataAvailable) {
+        const decisionPromise = config.aiCoordinator.requestDecision(detail.match_id, liveState, localTeam);
+        config.aiCoordinator.processNext();
+        const decision = await decisionPromise;
+        config.broadcastDecision?.(detail.match_id, decision);
+      }
+    }
+    gsiMemory.set(detail.match_id, { phase, round, finished: body.map?.phase === 'gameover' });
+    return reply.send({ ok: true, data: { matchId: detail.match_id, state: liveState ?? config.matchStateEngine.getState(detail.match_id), receivedAt: Date.now() } });
   });
 }
