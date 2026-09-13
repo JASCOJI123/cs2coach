@@ -27,6 +27,7 @@ export function getDb(url?: string, opts?: DbOptions): Sql {
     max_lifetime: 60 * 30,
     prepare: true,
     ssl: opts?.ssl ?? (wantsRequireSsl ? 'require' : 'prefer'),
+    transform: postgres.camel,
     onnotice: () => {
       /* suppress notice noise in logs */
     },
