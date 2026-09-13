@@ -15,7 +15,7 @@ export async function matchStatsRoutes(app: FastifyInstance, config: AppConfig):
     if (!match || !account || !(await userOwnsMatch(config, user.userId, match.id))) throw new AppError(codes.notFound, 'Match not found', 404);
 
     const loadRows = async () => config.db`
-      SELECT mp.player_id AS player_id,p.nickname,p.faceit_player_id,p.avatar,p.skill_level,p.elo,mp.team,
+      SELECT mp.player_id,p.nickname,p.faceit_player_id,p.avatar,p.skill_level,p.elo,mp.team,
         COALESCE(ps.kills,mp.kills,0) kills,COALESCE(ps.deaths,mp.deaths,0) deaths,COALESCE(ps.assists,mp.assists,0) assists,
         ps.adr,ps.kast,ps.rating,COALESCE(ps.opening_kills,0) opening_kills,COALESCE(ps.opening_deaths,0) opening_deaths,
         COALESCE(ps.utility_damage,0) utility_damage,COALESCE(ps.flash_assists,0) flash_assists,COALESCE(ps.clutches,0) clutches,
@@ -27,10 +27,10 @@ export async function matchStatsRoutes(app: FastifyInstance, config: AppConfig):
 
     let synced = false;
     const existingRows = (await loadRows()) as Array<Record<string, unknown>>;
-    const mineBefore = existingRows.find((r) => r.faceit_player_id === account.faceitUserId) ?? null;
+    const mineBefore = existingRows.find((r) => r.faceitPlayerId === account.faceitUserId) ?? null;
     if (mineBefore) {
       try {
-        const fresh = await syncFaceitPlayerMatchStats(config, match.id, String(mineBefore.player_id), account.faceitUserId, faceitMatchId);
+        const fresh = await syncFaceitPlayerMatchStats(config, match.id, String(mineBefore.playerId), account.faceitUserId, faceitMatchId);
         synced = Boolean(fresh);
         if (synced) await config.db`DELETE FROM match_analysis WHERE match_id=${match.id}`;
       } catch (error) {
@@ -39,7 +39,7 @@ export async function matchStatsRoutes(app: FastifyInstance, config: AppConfig):
     }
 
     const playerRows = (await loadRows()) as Array<Record<string, unknown>>;
-    const mine = playerRows.find((r) => r.faceit_player_id === account.faceitUserId) ?? null;
+    const mine = playerRows.find((r) => r.faceitPlayerId === account.faceitUserId) ?? null;
     return reply.send({ ok: true, data: {
       matchId: faceitMatchId,
       score: { a: match.scoreA, b: match.scoreB },
