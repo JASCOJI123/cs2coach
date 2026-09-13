@@ -14,9 +14,9 @@ export async function matchAnalysisRoutes(app: FastifyInstance, config: AppConfi
     const faceitMatchId=(request.params as {faceitMatchId:string}).faceitMatchId; const user=request.authedUser!; const account=await findFaceitAccountByUserId(config.db,user.userId); const match=await getMatchByFaceitId(config.db,faceitMatchId);
     if(!match||!account||!(await userOwnsMatch(config,user.userId,match.id)))throw new AppError(codes.notFound,'Match not found',404);
     const [analysisRows]=await Promise.all([config.db`SELECT post_match_analysis,created_at,updated_at FROM match_analysis WHERE match_id=${match.id} LIMIT 1`]);
-    const saved=analysisRows[0] as {post_match_analysis:unknown}|undefined;
-    if(!saved?.post_match_analysis)return reply.send({ok:true,data:null});
-    return reply.send({ok:true,data:saved.post_match_analysis});
+    const saved=analysisRows[0] as {postMatchAnalysis?:unknown}|undefined;
+    if(!saved?.postMatchAnalysis)return reply.send({ok:true,data:null});
+    return reply.send({ok:true,data:saved.postMatchAnalysis});
   });
 
   app.post('/api/matches/:faceitMatchId/analysis', { preHandler: await requireAuth(config) }, async (request, reply) => {
@@ -29,10 +29,10 @@ export async function matchAnalysisRoutes(app: FastifyInstance, config: AppConfi
     ]);
     const player=playerRows[0] as Record<string,unknown>|undefined; if(!player)throw new AppError(codes.notFound,'Player is not linked to this match',404);
     let syncedStats:Awaited<ReturnType<typeof syncFaceitPlayerMatchStats>>=null;
-    try{syncedStats=await syncFaceitPlayerMatchStats(config,match.id,String(player.player_id),account.faceitUserId,faceitMatchId);if(!syncedStats)config.logger.warn('faceit_match_player_stats_missing',{faceitMatchId,faceitPlayerId:account.faceitUserId});}catch(error){config.logger.warn('faceit_match_stats_sync_failed',{faceitMatchId,error:error instanceof Error?error.message:String(error)});}
-    const effectivePlayer={nickname:String(player.nickname),kills:syncedStats?.kills??Number(player.kills),deaths:syncedStats?.deaths??Number(player.deaths),assists:syncedStats?.assists??Number(player.assists),openingKills:syncedStats?.openingKills??Number(player.opening_kills),openingDeaths:syncedStats?.openingDeaths??Number(player.opening_deaths),utilityDamage:syncedStats?.utilityDamage??Number(player.utility_damage),flashAssists:syncedStats?.flashAssists??Number(player.flash_assists),clutches:syncedStats?.clutches??Number(player.clutches)};
-    const rounds=roundRows.map(row=>{const r=row as Record<string,unknown>;return{roundNumber:Number(r.round_number),winner:r.winner==null?null:String(r.winner),side:r.side==null?null:String(r.side),winReason:r.win_reason==null?null:String(r.win_reason),scoreAfterRound:r.score_after_round==null?null:String(r.score_after_round),playerEvents:(parseJson(r.events) as unknown[]|null)??[]};});
-    const opponentPatterns=patternRows.map(row=>{const r=row as Record<string,unknown>;return`${String(r.pattern_type)}${r.location?` at ${String(r.location)}`:''}: frequency ${Number(r.frequency).toFixed(1)}, confidence ${String(r.confidence)}, sample ${Number(r.sample_size)}`;});
+    try{syncedStats=await syncFaceitPlayerMatchStats(config,match.id,String(player.playerId),account.faceitUserId,faceitMatchId);if(!syncedStats)config.logger.warn('faceit_match_player_stats_missing',{faceitMatchId,faceitPlayerId:account.faceitUserId});}catch(error){config.logger.warn('faceit_match_stats_sync_failed',{faceitMatchId,error:error instanceof Error?error.message:String(error)});}
+    const effectivePlayer={nickname:String(player.nickname),kills:syncedStats?.kills??Number(player.kills),deaths:syncedStats?.deaths??Number(player.deaths),assists:syncedStats?.assists??Number(player.assists),openingKills:syncedStats?.openingKills??Number(player.openingKills),openingDeaths:syncedStats?.openingDeaths??Number(player.openingDeaths),utilityDamage:syncedStats?.utilityDamage??Number(player.utilityDamage),flashAssists:syncedStats?.flashAssists??Number(player.flashAssists),clutches:syncedStats?.clutches??Number(player.clutches)};
+    const rounds=roundRows.map(row=>{const r=row as Record<string,unknown>;return{roundNumber:Number(r.roundNumber),winner:r.winner==null?null:String(r.winner),side:r.side==null?null:String(r.side),winReason:r.winReason==null?null:String(r.winReason),scoreAfterRound:r.scoreAfterRound==null?null:String(r.scoreAfterRound),playerEvents:(parseJson(r.events) as unknown[]|null)??[]};});
+    const opponentPatterns=patternRows.map(row=>{const r=row as Record<string,unknown>;return`${String(r.patternType)}${r.location?` at ${String(r.location)}`:''}: frequency ${Number(r.frequency).toFixed(1)}, confidence ${String(r.confidence)}, sample ${Number(r.sampleSize)}`;});
     const result=await new PostMatchAnalysisService(config.groqClient).generate({map:match.map??null,finalScore:{a:Number(match.scoreA??0),b:Number(match.scoreB??0)},player:effectivePlayer,rounds,opponentPatterns});
     await config.db.begin(async sql=>{await sql`INSERT INTO match_analysis(match_id,post_match_analysis)VALUES(${match.id},${sql.json(result.analysis)})ON CONFLICT(match_id)DO UPDATE SET post_match_analysis=EXCLUDED.post_match_analysis,updated_at=now()`;await sql`INSERT INTO training_plans(user_id,match_id,plan_json)VALUES(${user.userId},${match.id},${sql.json(result.analysis.trainingPlan)})ON CONFLICT(user_id,match_id)DO UPDATE SET plan_json=EXCLUDED.plan_json`;});
     return reply.send({ok:true,data:{...result.analysis,source:result.source}});
