@@ -17,13 +17,14 @@ export interface PostMatchContext {
   };
 }
 
-const PROMPT = `Return only JSON matching the schema.
+const PROMPT = `Return one JSON object matching the schema exactly.
 Analyze THIS match, not a generic CS2 player.
 Use every supplied numeric stat and compare the current match against the player's historical baseline when history exists.
 The overallScore fields are skill ratings from 0-100: aim, positioning, decisionMaking, utility, trading, opening, clutch, teamplay.
 Make each score evidence-based and different when the supplied match data differs. Do not default all skills to 50.
 Identify concrete strengths and weaknesses from the actual numbers. If a metric is unavailable, do not invent it; infer only from other supplied evidence.
 For bestRound/worstRound use actual round numbers only when round data supports the conclusion.
+IMPORTANT: topMistakes, topDecisions, opponentPatterns, and trainingPlan MUST be JSON ARRAYS, never objects.
 topMistakes and topDecisions must be specific to this match. trainingPlan must target the weakest evidence-based skills and may use the historical trend.
 Use only supplied match data; never invent kills, events, maps, opponents, or outcomes.`;
 
@@ -33,6 +34,77 @@ function clamp(value: number): number {
 
 function n(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function stringArray(value: unknown, max: number): string[] {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => (typeof item === 'string' ? item : item == null ? '' : JSON.stringify(item)))
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .slice(0, max);
+  }
+  if (value && typeof value === 'object') {
+    return Object.values(value as Record<string, unknown>)
+      .flatMap((item) => Array.isArray(item) ? item : [item])
+      .map((item) => (typeof item === 'string' ? item : item == null ? '' : JSON.stringify(item)))
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .slice(0, max);
+  }
+  return [];
+}
+
+function trainingPlanArray(value: unknown): Array<{ day: number; focus: string }> {
+  if (Array.isArray(value)) {
+    return value
+      .map((item, index) => {
+        if (item && typeof item === 'object') {
+          const row = item as Record<string, unknown>;
+          const day = typeof row.day === 'number' ? row.day : index + 1;
+          const focus = typeof row.focus === 'string' ? row.focus.trim() : '';
+          return { day, focus };
+        }
+        return { day: index + 1, focus: typeof item === 'string' ? item.trim() : '' };
+      })
+      .filter((item) => item.focus.length > 0 && item.day >= 1 && item.day <= 7)
+      .slice(0, 7);
+  }
+  if (value && typeof value === 'object') {
+    const obj = value as Record<string, unknown>;
+    if (typeof obj.focus === 'string') {
+      return [{ day: typeof obj.day === 'number' ? obj.day : 1, focus: obj.focus.trim() }]
+        .filter((item) => item.focus.length > 0 && item.day >= 1 && item.day <= 7);
+    }
+    return Object.entries(obj).map(([key, item], index) => {
+      const dayMatch = key.match(/\d+/);
+      const day = dayMatch ? Number(dayMatch[0]) : index + 1;
+      const focus = typeof item === 'string'
+        ? item.trim()
+        : item && typeof item === 'object' && typeof (item as Record<string, unknown>).focus === 'string'
+          ? String((item as Record<string, unknown>).focus).trim()
+          : '';
+      return { day, focus };
+    }).filter((item) => item.focus.length > 0 && item.day >= 1 && item.day <= 7).slice(0, 7);
+  }
+  return [];
+}
+
+function parseGroqAnalysis(content: string): PostMatchAnalysis {
+  const parsed = JSON.parse(content) as Record<string, unknown>;
+  const root = parsed && typeof parsed.analysis === 'object' && parsed.analysis !== null
+    ? parsed.analysis as Record<string, unknown>
+    : parsed;
+
+  const normalized = {
+    ...root,
+    topMistakes: stringArray(root.topMistakes, 3),
+    topDecisions: stringArray(root.topDecisions, 3),
+    opponentPatterns: stringArray(root.opponentPatterns, 5),
+    trainingPlan: trainingPlanArray(root.trainingPlan),
+  };
+
+  return postMatchAnalysisSchema.parse(normalized);
 }
 
 function scoreFromStats(player: PostMatchContext['player']): PostMatchAnalysis['overallScore'] {
@@ -78,7 +150,7 @@ export class PostMatchAnalysisService {
           maxTokens: 1400,
           json: true,
         });
-        const analysis = postMatchAnalysisSchema.parse(JSON.parse(response.content));
+        const analysis = parseGroqAnalysis(response.content);
         return { analysis: { ...analysis, source: 'groq' }, source: 'groq' };
       } catch (error) {
         console.warn('post_match_groq_failed', {
