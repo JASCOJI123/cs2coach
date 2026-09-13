@@ -7,6 +7,7 @@ import type { AppConfig } from '../config';
 type GsiBody = Record<string, any>;
 type GsiMemory = { phase?: string; round: number; finished?: boolean };
 const gsiMemory = new Map<string, GsiMemory>();
+const lastAiHash = new Map<string, string>();
 function teamRef(faction: Record<string, any> | undefined): FaceitTeamRef | undefined { if (!faction) return undefined; const roster = Array.isArray(faction.roster) ? faction.roster : Array.isArray(faction.members) ? faction.members : []; return { teamId: typeof faction.team_id === 'string' ? faction.team_id : undefined, name: typeof faction.nickname === 'string' ? faction.nickname : undefined, players: roster.filter((m: any) => typeof m?.player_id === 'string' && typeof m?.nickname === 'string').map((m: any) => ({ faceitPlayerId: m.player_id, nickname: m.nickname, avatar: m.avatar, skillLevel: m.skill_level })) }; }
 function positionOf(player: any): { x: number; y: number; z: number } | undefined { if (typeof player?.position !== 'string') return undefined; const parts = player.position.split(',').map((v: string) => Number(v.trim())); return parts.length === 3 && parts.every(Number.isFinite) ? { x: parts[0]!, y: parts[1]!, z: parts[2]! } : undefined; }
 function weaponNames(player: any): string[] { if (!player?.weapons || typeof player.weapons !== 'object') return []; return Object.values(player.weapons).map((weapon: any) => weapon?.name).filter((v): v is string => typeof v === 'string').slice(0, 16); }
@@ -21,17 +22,12 @@ export async function gameStateGsiRoutes(app: FastifyInstance, config: AppConfig
     if (expectedToken && body.auth?.token !== expectedToken) throw new AppError(codes.unauthorized, 'Invalid CS2 GSI token', 401);
     const steamId = typeof body.player?.steamid === 'string' ? body.player.steamid : typeof body.provider?.steamid === 'string' ? body.provider.steamid : null;
     if (!steamId) return reply.code(202).send({ ok: true, waiting: true, reason: 'player steamid unavailable' });
-    let faceitPlayer;
-    try { faceitPlayer = await config.faceitClient.getPlayerByGamePlayerId(steamId, 'cs2'); } catch { return reply.code(202).send({ ok: true, waiting: true, reason: 'FACEIT player not resolved from CS2 SteamID' }); }
-    const account = await findFaceitAccountByFaceitUserId(config.db, faceitPlayer.player_id);
-    if (!account) return reply.code(202).send({ ok: true, waiting: true, reason: 'CS2 SteamID is not linked to CS2 Ustoz' });
-    const detail = await findActiveFaceitMatch(config, account.userId, faceitPlayer.player_id, steamId);
-    if (!detail) return reply.code(202).send({ ok: true, waiting: true, reason: 'No active FACEIT match found for linked player' });
+    let faceitPlayer; try { faceitPlayer = await config.faceitClient.getPlayerByGamePlayerId(steamId, 'cs2'); } catch { return reply.code(202).send({ ok: true, waiting: true, reason: 'FACEIT player not resolved from CS2 SteamID' }); }
+    const account = await findFaceitAccountByFaceitUserId(config.db, faceitPlayer.player_id); if (!account) return reply.code(202).send({ ok: true, waiting: true, reason: 'CS2 SteamID is not linked to CS2 Ustoz' });
+    const detail = await findActiveFaceitMatch(config, account.userId, faceitPlayer.player_id, steamId); if (!detail) return reply.code(202).send({ ok: true, waiting: true, reason: 'No active FACEIT match found for linked player' });
     const match = await upsertMatchFromFaceit(config.db, { faceitMatchId: detail.match_id, game: detail.game ?? 'cs2', competition: detail.competition_name ?? detail.competition_id ?? null, map: detail.details?.map ?? body.map?.name ?? null, status: 'ongoing', startedAtMs: detail.started_at ? detail.started_at * 1000 : Date.now(), finishedAtMs: null, scoreA: detail.results?.score?.faction1 ?? 0, scoreB: detail.results?.score?.faction2 ?? 0 });
     const playerRow = await upsertPlayer(config.db, { faceitPlayerId: faceitPlayer.player_id, nickname: faceitPlayer.nickname, avatar: faceitPlayer.avatar, country: faceitPlayer.country, skillLevel: faceitPlayer.games?.cs2?.skill_level, elo: faceitPlayer.games?.cs2?.faceit_elo });
-    const factions = Object.values(detail.teams ?? {}) as Array<Record<string, any>>;
-    const userFactionIndex = factions.findIndex((f) => (f.roster ?? f.members ?? []).some((p: any) => p.player_id === faceitPlayer.player_id || p.game_player_id === steamId));
-    const localTeam = userFactionIndex === 1 ? 'B' : 'A';
+    const factions = Object.values(detail.teams ?? {}) as Array<Record<string, any>>; const userFactionIndex = factions.findIndex((f) => (f.roster ?? f.members ?? []).some((p: any) => p.player_id === faceitPlayer.player_id || p.game_player_id === steamId)); const localTeam = userFactionIndex === 1 ? 'B' : 'A';
     await addMatchPlayer(config.db, { matchId: match.id, playerId: playerRow.id, team: localTeam });
     const a = teamRef(factions[0]); const b = teamRef(factions[1]); const memory = gsiMemory.get(detail.match_id) ?? { round: 0 }; const events: GameEvent[] = []; const mapName = typeof body.map?.name === 'string' ? body.map.name : detail.details?.map;
     if (!config.matchStateEngine.has(detail.match_id)) events.push({ type: 'match_started', matchId: detail.match_id, ts: Date.now(), map: mapName, teams: { a, b } });
@@ -47,14 +43,15 @@ export async function gameStateGsiRoutes(app: FastifyInstance, config: AppConfig
     const liveState = config.matchStateEngine.applyEvents(events);
     if (liveState) {
       config.broadcastState?.(detail.match_id, liveState);
-      if (liveState.gameDataAvailable) {
+      if (liveState.gameDataAvailable && lastAiHash.get(detail.match_id) !== liveState.stateHash) {
+        lastAiHash.set(detail.match_id, liveState.stateHash);
         const decisionPromise = config.aiCoordinator.requestDecision(detail.match_id, liveState, localTeam);
         config.aiCoordinator.processNext();
-        const decision = await decisionPromise;
-        config.broadcastDecision?.(detail.match_id, decision);
+        void decisionPromise.then((decision) => config.broadcastDecision?.(detail.match_id, decision)).catch((error) => config.logger.warn('gsi_ai_broadcast_failed', { matchId: detail.match_id, error: error instanceof Error ? error.message : String(error) }));
       }
     }
     gsiMemory.set(detail.match_id, { phase, round, finished: body.map?.phase === 'gameover' });
+    if (body.map?.phase === 'gameover') { lastAiHash.delete(detail.match_id); gsiMemory.delete(detail.match_id); }
     return reply.send({ ok: true, data: { matchId: detail.match_id, state: liveState ?? config.matchStateEngine.getState(detail.match_id), receivedAt: Date.now() } });
   });
 }
