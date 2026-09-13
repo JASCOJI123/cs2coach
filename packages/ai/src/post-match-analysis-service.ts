@@ -46,7 +46,6 @@ function scoreFromStats(player: PostMatchContext['player']): PostMatchAnalysis['
   const utility = n(player.utilityDamage);
   const flash = n(player.flashAssists) ?? 0;
   const clutches = n(player.clutches) ?? 0;
-  const totalDamage = n(player.totalDamage);
   const kd = deaths > 0 ? kills / deaths : kills;
   const openingTotal = openingKills + openingDeaths;
   const openingRate = openingTotal > 0 ? openingKills / openingTotal : 0.5;
@@ -66,11 +65,11 @@ function scoreFromStats(player: PostMatchContext['player']): PostMatchAnalysis['
 export class PostMatchAnalysisService {
   constructor(private readonly groq: GroqClient) {}
 
-  async generate(context: PostMatchContext): Promise<{ analysis: PostMatchAnalysis; source: 'groq' | 'fallback' }> {
+  async generate(context: PostMatchContext): Promise<{ analysis: PostMatchAnalysis & { source: 'groq' | 'fallback' }; source: 'groq' | 'fallback' }> {
     if (this.groq.available) {
       try {
         const response = await this.groq.chat({
-          model: 'llama-3.3-70b-versatile',
+          model: 'openai/gpt-oss-120b',
           messages: [
             { role: 'system', content: PROMPT },
             { role: 'user', content: JSON.stringify(context) },
@@ -79,12 +78,17 @@ export class PostMatchAnalysisService {
           maxTokens: 1400,
           json: true,
         });
-        return { analysis: postMatchAnalysisSchema.parse(JSON.parse(response.content)), source: 'groq' };
-      } catch {
-        // Fall through to deterministic, data-driven analysis.
+        const analysis = postMatchAnalysisSchema.parse(JSON.parse(response.content));
+        return { analysis: { ...analysis, source: 'groq' }, source: 'groq' };
+      } catch (error) {
+        console.warn('post_match_groq_failed', {
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
+    } else {
+      console.warn('post_match_groq_unavailable', { reason: 'GROQ_API_KEY is missing or placeholder' });
     }
-    return { analysis: this.fallback(context), source: 'fallback' };
+    return { analysis: { ...this.fallback(context), source: 'fallback' }, source: 'fallback' };
   }
 
   private fallback(context: PostMatchContext): PostMatchAnalysis {
