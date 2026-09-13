@@ -147,7 +147,7 @@ export class FaceitApiClient {
   getPlayerByNickname(nickname: string, game = 'cs2'): Promise<FaceitPlayerCore> { return this.get<FaceitPlayerCore>('/players', { nickname, game }); }
   getPlayerByGamePlayerId(gamePlayerId: string, game = 'cs2'): Promise<FaceitPlayerCore> { return this.get<FaceitPlayerCore>('/players', { game_player_id: gamePlayerId, game }, { ttlMs: 5 * 60_000 }); }
   searchPlayers(nickname: string, game = 'cs2'): Promise<FaceitPlayerSearchResponse> { return this.get<FaceitPlayerSearchResponse>('/search/players', { nickname, game, limit: 20 }); }
-  getPlayerById(playerId: string): Promise<FaceitPlayerCore> { return this.get<FaceitPlayerCore>(`/players/${encodeURIComponent(playerId)}`); }
+  getPlayerById(playerId: string, opts?: { ttlMs?: number }): Promise<FaceitPlayerCore> { return this.get<FaceitPlayerCore>(`/players/${encodeURIComponent(playerId)}`, undefined, opts); }
 
   async resolvePlayer(playerId: string, nickname?: string, game = 'cs2'): Promise<FaceitPlayerCore> {
     try { return await this.getPlayerById(playerId); }
