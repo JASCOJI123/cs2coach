@@ -1,17 +1,6 @@
-import type {
-  ApiEnvelope,
-  AuthResult,
-  FaceitStatus,
-  MatchLite,
-  MatchStateLite,
-  PostMatchAnalysis,
-  TacticalDecisionLite,
-} from './types';
+import type { ApiEnvelope, AuthResult, FaceitStatus, MatchLite, MatchStateLite, PostMatchAnalysis, TacticalDecisionLite } from './types';
 
-export class ApiError extends Error {
-  constructor(message: string, public readonly status: number, public readonly code?: string) { super(message); this.name = 'ApiError'; }
-}
-
+export class ApiError extends Error { constructor(message: string, public readonly status: number, public readonly code?: string) { super(message); this.name = 'ApiError'; } }
 const AUTH_STORAGE_KEY = 'cs2coach.session.v1';
 let authToken = '';
 function loadStoredToken(): string { try { return window.localStorage.getItem(AUTH_STORAGE_KEY) ?? ''; } catch { return ''; } }
@@ -32,11 +21,11 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (!res.ok || !body?.ok) { if (res.status === 401) clearAuthToken(); throw new ApiError(body?.message ?? `Request failed (${res.status})`, res.status, body?.error); }
   return (body as { data: T }).data;
 }
-
 export const api = {
   login: (initData: string) => request<AuthResult>('/api/auth/telegram', { method: 'POST', body: JSON.stringify({ initData }) }),
   exchangeFaceitHandoff: (handoff: string) => request<AuthResult>('/api/auth/faceit/callback-session', { method: 'POST', body: JSON.stringify({ handoff }) }),
   faceitStatus: () => request<FaceitStatus>('/api/auth/faceit/status'),
+  refreshFaceitProfile: () => request<FaceitStatus>('/api/auth/faceit/refresh-profile', { method: 'POST', body: '{}' }),
   connectFaceit: () => request<{ url: string }>('/api/auth/faceit'),
   disconnectFaceit: () => request<{ connected: false }>('/api/auth/faceit/disconnect', { method: 'POST', body: '{}' }),
   listMatches: () => request<MatchLite[]>('/api/matches'),
