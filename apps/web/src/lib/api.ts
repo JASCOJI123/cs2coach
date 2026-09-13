@@ -24,7 +24,14 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 export const api = {
   login: (initData: string) => request<AuthResult>('/api/auth/telegram', { method: 'POST', body: JSON.stringify({ initData }) }),
   exchangeFaceitHandoff: (handoff: string) => request<AuthResult>('/api/auth/faceit/callback-session', { method: 'POST', body: JSON.stringify({ handoff }) }),
-  faceitStatus: () => request<FaceitStatus>('/api/auth/faceit/status'),
+  faceitStatus: async () => {
+    const status = await request<FaceitStatus>('/api/auth/faceit/status');
+    if (status.connected && (status.skillLevel == null || status.elo == null)) {
+      try { return await request<FaceitStatus>('/api/auth/faceit/refresh-profile', { method: 'POST', body: '{}' }); }
+      catch { return status; }
+    }
+    return status;
+  },
   refreshFaceitProfile: () => request<FaceitStatus>('/api/auth/faceit/refresh-profile', { method: 'POST', body: '{}' }),
   connectFaceit: () => request<{ url: string }>('/api/auth/faceit'),
   disconnectFaceit: () => request<{ connected: false }>('/api/auth/faceit/disconnect', { method: 'POST', body: '{}' }),
