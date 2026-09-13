@@ -11,7 +11,14 @@ export async function faceitProfileRoutes(app: FastifyInstance, config: AppConfi
     if (!account) return reply.status(404).send({ ok: false, error: { code: 'FACEIT_NOT_CONNECTED', message: 'FACEIT akkaunt ulanmagan' } });
 
     try {
-      const profile = await config.faceitClient.resolvePlayer(account.faceitUserId, account.nickname, 'cs2');
+      // Bypass the normal 60s GET cache: this endpoint is explicitly a manual/
+      // post-match refresh and must read the current FACEIT Elo.
+      let profile;
+      try {
+        profile = await config.faceitClient.getPlayerById(account.faceitUserId, { ttlMs: 0 });
+      } catch {
+        profile = await config.faceitClient.resolvePlayer(account.faceitUserId, account.nickname, 'cs2');
+      }
       const cs2 = profile.games?.cs2;
       const skillLevel = cs2?.skill_level ?? null;
       const elo = cs2?.faceit_elo ?? null;
