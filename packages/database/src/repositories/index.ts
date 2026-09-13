@@ -153,6 +153,14 @@ export async function updateFaceitAccountPlayerId(sql: Sql, userId: string, face
   await sql`update faceit_accounts set faceit_user_id = ${faceitUserId}, updated_at = now() where user_id = ${userId}`;
 }
 
+export async function updateFaceitAccountProfile(sql: Sql, input: { userId: string; nickname: string; avatar?: string | null; country?: string | null; skillLevel?: number | null; elo?: number | null }): Promise<void> {
+  await sql`
+    update faceit_accounts
+    set nickname = ${input.nickname}, avatar = ${input.avatar ?? null}, country = ${input.country ?? null}, skill_level = ${input.skillLevel ?? null}, elo = ${input.elo ?? null}, updated_at = now()
+    where user_id = ${input.userId}
+  `;
+}
+
 export async function findFaceitAccountByUserId(sql: Sql, userId: string): Promise<FaceitAccountRow | null> {
   const [row] = await sql<FaceitAccountRow[]>`select id, user_id, faceit_user_id, nickname, avatar, country, skill_level, elo, access_token, refresh_token, expires_at, created_at, updated_at from faceit_accounts where user_id = ${userId}`;
   return row ?? null;
