@@ -25,6 +25,8 @@ export type {
   FaceitMatchDetail,
   FaceitPlayerHistory,
   FaceitCs2Stats,
+  FaceitMatchPlayerStats,
+  FaceitMatchStats,
   FaceitTokenResponse,
   FaceitWebhookEvent,
   FaceitMatchEventType,
