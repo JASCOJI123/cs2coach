@@ -56,7 +56,9 @@ export async function faceitAuthRoutes(app: FastifyInstance, config: AppConfig):
     if (!account) return reply.send({ ok: true, data: { connected: false } });
     if (account.skillLevel == null || account.elo == null) {
       try {
-        const profile = await config.faceitClient.resolvePlayer(account.faceitUserId, account.nickname, 'cs2');
+        const profile = account.faceitUserId
+          ? await config.faceitClient.resolvePlayer(account.faceitUserId, account.nickname, 'cs2')
+          : await config.faceitClient.getPlayerByNickname(account.nickname, 'cs2');
         const skillLevel = profile.games?.cs2?.skill_level ?? account.skillLevel;
         const elo = profile.games?.cs2?.faceit_elo ?? account.elo;
         const nickname = profile.nickname ?? account.nickname;
