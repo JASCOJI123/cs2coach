@@ -12,9 +12,7 @@ export async function matchStatsRoutes(app: FastifyInstance, config: AppConfig):
     const user = request.authedUser!;
     const account = await findFaceitAccountByUserId(config.db, user.userId);
     const match = await getMatchByFaceitId(config.db, faceitMatchId);
-    if (!match || !account || !(await userOwnsMatch(config, user.userId, match.id))) {
-      throw new AppError(codes.notFound, 'Match not found', 404);
-    }
+    if (!match || !account || !(await userOwnsMatch(config, user.userId, match.id))) throw new AppError(codes.notFound, 'Match not found', 404);
 
     const loadRows = async () => config.db`
       SELECT p.nickname,p.faceit_player_id,p.avatar,p.skill_level,p.elo,mp.team,
@@ -27,35 +25,28 @@ export async function matchStatsRoutes(app: FastifyInstance, config: AppConfig):
       LEFT JOIN player_statistics ps ON ps.match_id=mp.match_id AND ps.player_id=mp.player_id
       WHERE mp.match_id=${match.id} ORDER BY ps.rating DESC NULLS LAST,ps.kills DESC`;
 
-    let playerRows = (await loadRows()) as Array<Record<string, unknown>>;
-    let mine = playerRows.find((r) => r.faceit_player_id === account.faceitUserId) ?? null;
-
-    if (mine) {
-      const hasRealStats = [mine.kills, mine.deaths, mine.assists, mine.adr, mine.rating]
-        .some((value) => value != null && Number(value) !== 0);
-      if (!hasRealStats) {
-        try {
-          await syncFaceitPlayerMatchStats(config, match.id, String(mine.player_id), account.faceitUserId, faceitMatchId);
-          playerRows = (await loadRows()) as Array<Record<string, unknown>>;
-          mine = playerRows.find((r) => r.faceit_player_id === account.faceitUserId) ?? null;
-        } catch (error) {
-          config.logger.warn('faceit_match_stats_sync_failed', {
-            faceitMatchId,
-            error: error instanceof Error ? error.message : String(error),
-          });
-        }
+    let synced = false;
+    const existingRows = (await loadRows()) as Array<Record<string, unknown>>;
+    const mineBefore = existingRows.find((r) => r.faceit_player_id === account.faceitUserId) ?? null;
+    if (mineBefore) {
+      try {
+        const fresh = await syncFaceitPlayerMatchStats(config, match.id, String(mineBefore.player_id), account.faceitUserId, faceitMatchId);
+        synced = Boolean(fresh);
+        if (synced) await config.db`DELETE FROM match_analysis WHERE match_id=${match.id}`;
+      } catch (error) {
+        config.logger.warn('faceit_match_stats_sync_failed', { faceitMatchId, error: error instanceof Error ? error.message : String(error) });
       }
     }
 
-    return reply.send({
-      ok: true,
-      data: {
-        matchId: faceitMatchId,
-        score: { a: match.scoreA, b: match.scoreB },
-        status: match.status,
-        player: mine,
-        players: playerRows,
-      },
-    });
+    const playerRows = (await loadRows()) as Array<Record<string, unknown>>;
+    const mine = playerRows.find((r) => r.faceit_player_id === account.faceitUserId) ?? null;
+    return reply.send({ ok: true, data: {
+      matchId: faceitMatchId,
+      score: { a: match.scoreA, b: match.scoreB },
+      status: match.status,
+      player: mine,
+      players: playerRows,
+      statsSource: synced ? 'faceit-match' : 'database-cache',
+    }});
   });
 }
