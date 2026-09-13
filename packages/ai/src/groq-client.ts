@@ -38,6 +38,8 @@ export interface GroqClientOptions {
   maxRetries?: number;
 }
 
+const DEFAULT_GROQ_MODEL = 'openai/gpt-oss-120b';
+
 export class GroqClient {
   private readonly apiKey: string;
   private readonly baseUrl: string;
@@ -47,12 +49,9 @@ export class GroqClient {
   private readonly logger: Logger;
 
   constructor(opts: GroqClientOptions, logger?: Logger) {
-    // A missing/placeholder key is allowed at construction so the app boots and
-    // the deterministic tactical engine takes over (spec §16, §31 fallback);
-    // `available` is false in that case and no request is ever made.
     this.apiKey = opts.apiKey ?? '';
     this.baseUrl = opts.baseUrl ?? 'https://api.groq.com/openai/v1';
-    this.model = opts.model ?? 'llama-3.3-70b-versatile';
+    this.model = opts.model ?? DEFAULT_GROQ_MODEL;
     this.timeoutMs = opts.timeoutMs ?? 15_000;
     this.maxRetries = opts.maxRetries ?? 3;
     this.logger = logger ?? createLogger('groq');
@@ -105,6 +104,7 @@ export class GroqClient {
 
       const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
       const content = data.choices?.[0]?.message?.content ?? '';
+      if (!content.trim()) throw new AppError(codes.upstreamError, 'Groq returned an empty response');
       return { content, raw: data };
     } catch (err) {
       if (err instanceof AppError) throw err;
