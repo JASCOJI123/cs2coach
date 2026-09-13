@@ -9,6 +9,7 @@ import { createAppConfig, type AppConfig } from './config';
 import { WebSocketManager } from './ws/websocket-manager';
 import { healthRoutes } from './routes/health';
 import { matchesRoutes } from './routes/matches';
+import { matchAnalysisRoutes } from './routes/match-analysis';
 import { telegramAuthRoutes } from './routes/auth-telegram';
 import { faceitAuthRoutes } from './routes/auth-faceit';
 import { gameStateRoutes } from './routes/game-state';
@@ -26,13 +27,14 @@ export async function buildServer(config: AppConfig = createAppConfig()): Promis
   await app.register(rateLimit, { max: 1000, timeWindow: '1 minute' });
   await app.register(websocket);
 
-  app.get('/', async (_request, reply) => reply.send({ ok: true, service: 'cs2coach-api', description: 'CS2 AI COACH backend — Telegram Mini App API', version: '0.2.0', endpoints: { health: '/health', apiHealth: '/api/health', telegramAuth: '/api/auth/telegram', faceitAuth: '/api/auth/faceit', matches: '/api/matches', subscription: '/api/subscription', faceitWebhook: '/api/webhooks/faceit', gsi: '/api/game-state/gsi', gameState: '/api/game-state', demo: '/api/demo' }, dataPolicy: 'No fake data — unavailable state is shown as is' }));
+  app.get('/', async (_request, reply) => reply.send({ ok: true, service: 'cs2coach-api', description: 'CS2 AI COACH backend — Telegram Mini App API', version: '0.3.0', endpoints: { health: '/health', apiHealth: '/api/health', telegramAuth: '/api/auth/telegram', faceitAuth: '/api/auth/faceit', matches: '/api/matches', matchAnalysis: '/api/matches/:faceitMatchId/analysis', subscription: '/api/subscription', faceitWebhook: '/api/webhooks/faceit', gsi: '/api/game-state/gsi', gameState: '/api/game-state', demo: '/api/demo' }, dataPolicy: 'No fake data — unavailable state is shown as is' }));
   await healthRoutes(app, config);
   await telegramAuthRoutes(app, config);
   await faceitAuthRoutes(app, config);
   await faceitWebhookRoutes(app, config);
   await subscriptionRoutes(app, config);
   await matchesRoutes(app, config);
+  await matchAnalysisRoutes(app, config);
   await gameStateRoutes(app, config);
   await gameStateGsiRoutes(app, config);
   await demoRoutes(app, config);
