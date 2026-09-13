@@ -32,7 +32,9 @@ export async function matchStatsRoutes(app: FastifyInstance, config: AppConfig):
       try {
         const fresh = await syncFaceitPlayerMatchStats(config, match.id, String(mineBefore.playerId), account.faceitUserId, faceitMatchId);
         synced = Boolean(fresh);
-        if (synced) await config.db`DELETE FROM match_analysis WHERE match_id=${match.id}`;
+        // Do not delete saved post-match analysis here. The analysis endpoint is intentionally
+        // idempotent: once Groq has produced an analysis for a completed match, opening the
+        // match or refreshing its FACEIT stats must not cause a new LLM result to be generated.
       } catch (error) {
         config.logger.warn('faceit_match_stats_sync_failed', { faceitMatchId, error: error instanceof Error ? error.message : String(error) });
       }
