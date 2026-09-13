@@ -5,3 +5,5 @@ export * from './groq-client';
 export * from './tactical-prompt';
 export * from './tactical-validator';
 export * from './ai-coordinator';
+export * from './post-match-schema';
+export * from './post-match-analysis-service';
