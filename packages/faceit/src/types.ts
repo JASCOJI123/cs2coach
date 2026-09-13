@@ -16,6 +16,44 @@ export interface FaceitMatchListItem { match_id: string; game?: string; game_mod
 export interface FaceitMatchDetail extends FaceitMatchListItem { faceit_url?: string; chat_room_id?: string; configured_at?: number; started_at?: number; finished_at?: number; }
 export interface FaceitPlayerHistory { items: FaceitMatchListItem[]; start: number; end: number; from: number; to: number; items_totals?: number; }
 export interface FaceitCs2Stats { lifetime?: { 'Average Headshots %'?: number; 'Current Win Streak'?: number; games?: number; 'K/D Ratio'?: number; Kills?: number; Matches?: number; 'Longest Win Streak'?: number; 'Recent Results'?: string[]; 'Total Headshots'?: number; Wins?: number }; segments?: Array<Record<string, unknown>>; }
+
+export interface FaceitMatchPlayerStats {
+  player_id?: string;
+  nickname?: string;
+  player_name?: string;
+  kills?: number;
+  deaths?: number;
+  assists?: number;
+  adr?: number;
+  kast?: number;
+  rating?: number;
+  opening_kills?: number;
+  opening_deaths?: number;
+  utility_damage?: number;
+  flash_assists?: number;
+  clutches?: number;
+  headshots?: number;
+  headshots_percent?: number;
+  total_damage?: number;
+  mvps?: number;
+  triple_kills?: number;
+  quadro_kills?: number;
+  ace_kills?: number;
+  [key: string]: unknown;
+}
+
+export interface FaceitMatchStats {
+  match_id?: string;
+  rounds?: unknown[];
+  teams?: Array<{
+    team_id?: string;
+    team_name?: string;
+    faction_id?: string;
+    players?: FaceitMatchPlayerStats[];
+  }>;
+  [key: string]: unknown;
+}
+
 export interface FaceitTokenResponse { access_token?: string; refresh_token?: string; token_type?: string; expires_in?: number; id_token?: string; }
 export interface FaceitWebhookEvent { event: string; payload: unknown; event_type?: string; ts?: number; }
 export type FaceitMatchEventType = 'match_object_created' | 'match_status_configuring' | 'match_status_ready' | 'match_status_finished' | 'match_status_aborted' | 'match_status_cancelled' | 'match_demo_ready';
