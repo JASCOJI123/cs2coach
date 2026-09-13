@@ -25,6 +25,17 @@ export async function matchAnalysisRoutes(app: FastifyInstance, config: AppConfi
     const faceitMatchId=(request.params as {faceitMatchId:string}).faceitMatchId; const user=request.authedUser!; const account=await findFaceitAccountByUserId(config.db,user.userId); const match=await getMatchByFaceitId(config.db,faceitMatchId);
     if(!match||!account||!(await userOwnsMatch(config,user.userId,match.id)))throw new AppError(codes.notFound,'Match not found',404);
 
+    // Post-match analysis is intentionally idempotent. Once a real Groq analysis is
+    // saved for a match, repeated clicks must return the exact same recommendations
+    // instead of asking the model to sample a new answer. Legacy fallback results are
+    // allowed through once so they can be upgraded to Groq after deployment.
+    const [existingRows]=await Promise.all([config.db`SELECT post_match_analysis FROM match_analysis WHERE match_id=${match.id} LIMIT 1`]);
+    const existing=existingRows[0] as {postMatchAnalysis?:unknown}|undefined;
+    const existingAnalysis=existing?.postMatchAnalysis as {source?:unknown}|undefined;
+    if(existingAnalysis && existingAnalysis.source==='groq') {
+      return reply.send({ok:true,data:existingAnalysis});
+    }
+
     const [playerRows,roundRows,patternRows,historyRows]=await Promise.all([
       config.db`SELECT p.nickname,mp.player_id,
         COALESCE(ps.kills,mp.kills,0) AS kills,COALESCE(ps.deaths,mp.deaths,0) AS deaths,COALESCE(ps.assists,mp.assists,0) AS assists,
