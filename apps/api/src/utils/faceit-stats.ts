@@ -44,13 +44,9 @@ function statValue(stats: Record<string, unknown>, ...names: string[]): number |
 
 function playerStatsFromPayload(payload: any, playerId: string): Record<string, unknown> | null {
   for (const round of Array.isArray(payload?.rounds) ? payload.rounds : []) {
-    const teams = Array.isArray(round?.teams)
-      ? round.teams
-      : Object.values(round?.teams ?? {});
+    const teams = Array.isArray(round?.teams) ? round.teams : Object.values(round?.teams ?? {});
     for (const team of teams as any[]) {
-      const players = Array.isArray(team?.players)
-        ? team.players
-        : Object.values(team?.players ?? {});
+      const players = Array.isArray(team?.players) ? team.players : Object.values(team?.players ?? {});
       for (const player of players as any[]) {
         if (player?.player_id !== playerId) continue;
         const stats = player?.player_stats ?? player?.stats;
@@ -101,6 +97,17 @@ export async function syncFaceitPlayerMatchStats(
     matchId: dbMatchId,
     ...stats,
   });
+  await config.db`
+    UPDATE player_statistics
+    SET headshots=${stats.headshots ?? 0},
+        headshots_percent=${stats.headshotsPercent ?? null},
+        total_damage=${stats.totalDamage ?? 0},
+        mvps=${stats.mvps ?? 0},
+        triple_kills=${stats.tripleKills ?? 0},
+        quadro_kills=${stats.quadroKills ?? 0},
+        ace_kills=${stats.aceKills ?? 0}
+    WHERE player_id=${dbPlayerId} AND match_id=${dbMatchId}
+  `;
 
   const map = Array.isArray((payload as any)?.rounds)
     ? (payload as any).rounds.map((r: any) => r?.round_stats?.Map).find((m: unknown) => typeof m === 'string' && m.trim())
