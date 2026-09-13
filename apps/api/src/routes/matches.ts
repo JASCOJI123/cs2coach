@@ -24,6 +24,39 @@ export async function userOwnsMatch(config: AppConfig, userId: string, matchId: 
   return Boolean(row);
 }
 
+function extractMap(detail: any): string | null {
+  const direct = detail?.details?.map;
+  if (typeof direct === 'string' && direct.trim()) return direct.trim();
+  const voting = detail?.voting?.map;
+  if (typeof voting === 'string' && voting.trim()) return voting.trim();
+  for (const value of [voting?.pick, voting?.name, voting?.selected]) {
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  return null;
+}
+
+async function hydrateHistoryMaps(config: AppConfig, items: any[]): Promise<any[]> {
+  const enriched: any[] = [];
+  for (const item of items) {
+    if (item?.details?.map) {
+      enriched.push(item);
+      continue;
+    }
+    try {
+      const detail = await config.faceitClient.getMatchById(item.match_id);
+      const map = extractMap(detail);
+      enriched.push(map ? { ...item, details: { ...(item.details ?? {}), map } } : item);
+    } catch (error) {
+      config.logger.warn('faceit_match_detail_failed', {
+        matchId: item?.match_id,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      enriched.push(item);
+    }
+  }
+  return enriched;
+}
+
 export async function matchesRoutes(app: FastifyInstance, config: AppConfig): Promise<void> {
   app.get('/api/matches', { preHandler: await requireAuth(config) }, async (request, reply) => {
     const user = request.authedUser!;
@@ -35,9 +68,25 @@ export async function matchesRoutes(app: FastifyInstance, config: AppConfig): Pr
         const player = await config.faceitClient.resolvePlayer(account.faceitUserId, account.nickname, 'cs2');
         if (player.player_id !== account.faceitUserId) await updateFaceitAccountPlayerId(config.db, user.userId, player.player_id);
         const history = await config.faceitClient.getPlayerMatches(player.player_id, { offset: 0, limit: 20 });
-        const items = history.items ?? [];
-        liveHistory = items.map((m) => ({ id: `faceit-${m.match_id}`, faceitMatchId: m.match_id, map: m.details?.map ?? null, status: m.status ?? 'finished', score: { a: m.results?.score?.faction1 ?? 0, b: m.results?.score?.faction2 ?? 0 }, startedAt: m.started_at ? new Date(m.started_at * 1000).toISOString() : null, finishedAt: m.finished_at ? new Date(m.finished_at * 1000).toISOString() : null }));
-        await syncFaceitPlayerHistory(config.db, { faceitPlayerId: player.player_id, nickname: player.nickname || account.nickname, avatar: player.avatar ?? account.avatar, country: player.country ?? account.country, skillLevel: player.games?.cs2?.skill_level ?? account.skillLevel, elo: player.games?.cs2?.faceit_elo ?? account.elo, items });
+        const items = await hydrateHistoryMaps(config, history.items ?? []);
+        liveHistory = items.map((m: any) => ({
+          id: `faceit-${m.match_id}`,
+          faceitMatchId: m.match_id,
+          map: extractMap(m),
+          status: m.status ?? 'finished',
+          score: { a: m.results?.score?.faction1 ?? 0, b: m.results?.score?.faction2 ?? 0 },
+          startedAt: m.started_at ? new Date(m.started_at * 1000).toISOString() : null,
+          finishedAt: m.finished_at ? new Date(m.finished_at * 1000).toISOString() : null,
+        }));
+        await syncFaceitPlayerHistory(config.db, {
+          faceitPlayerId: player.player_id,
+          nickname: player.nickname || account.nickname,
+          avatar: player.avatar ?? account.avatar,
+          country: player.country ?? account.country,
+          skillLevel: player.games?.cs2?.skill_level ?? account.skillLevel,
+          elo: player.games?.cs2?.faceit_elo ?? account.elo,
+          items,
+        });
         historySyncAt.set(user.userId, Date.now());
         config.logger.info('faceit_history_synced', { userId: user.userId, matchCount: items.length });
       } catch (error) {
@@ -66,7 +115,7 @@ export async function matchesRoutes(app: FastifyInstance, config: AppConfig): Pr
       const roster1 = detail.teams?.faction1?.roster ?? [];
       const roster2 = detail.teams?.faction2?.roster ?? [];
       if (![...roster1, ...roster2].some((p: any) => p.player_id === account.faceitUserId)) throw new Error('match is not owned by current user');
-      return reply.send({ ok: true, data: { id: `faceit-${detail.match_id}`, faceitMatchId: detail.match_id, map: detail.details?.map ?? null, status: detail.status ?? 'finished', score: { a: detail.results?.score?.faction1 ?? 0, b: detail.results?.score?.faction2 ?? 0 }, live: null } });
+      return reply.send({ ok: true, data: { id: `faceit-${detail.match_id}`, faceitMatchId: detail.match_id, map: extractMap(detail), status: detail.status ?? 'finished', score: { a: detail.results?.score?.faction1 ?? 0, b: detail.results?.score?.faction2 ?? 0 }, live: null } });
     } catch { throw new AppError(codes.notFound, 'Match not found', 404); }
   });
 
