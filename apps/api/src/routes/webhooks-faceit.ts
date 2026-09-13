@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { AppError, codes } from '@cs2coach/shared';
-import { addMatchPlayer, findFaceitAccountByFaceitUserId, upsertMatchFromFaceit, upsertPlayer } from '@cs2coach/database';
+import { addMatchPlayer, findFaceitAccountByFaceitUserId, updateFaceitAccountProfile, upsertMatchFromFaceit, upsertPlayer } from '@cs2coach/database';
 import { isSupportedEvent, normalizeMatchPayload, webhookToGameEvents } from '@cs2coach/faceit';
 import type { FaceitFaction } from '@cs2coach/faceit';
 import type { AppConfig } from '../config';
@@ -64,6 +64,44 @@ export async function faceitWebhookRoutes(app: FastifyInstance, config: AppConfi
       }
     }
     config.matchStateEngine.applyEvents(webhookToGameEvents(event, normalized));
+
+    // FACEIT updates Elo/skill level after the match is finished. Fetch the
+    // profile with cache disabled so the app immediately gets the new values.
+    if (event === 'match_status_finished') {
+      try {
+        const freshPlayer = await config.faceitClient.getPlayerById(linkedAccount.faceitUserId, { ttlMs: 0 });
+        const cs2 = freshPlayer.games?.cs2;
+        await updateFaceitAccountProfile(config.db, {
+          userId: linkedAccount.userId,
+          nickname: freshPlayer.nickname,
+          avatar: freshPlayer.avatar,
+          country: freshPlayer.country,
+          skillLevel: cs2?.skill_level,
+          elo: cs2?.faceit_elo,
+        });
+        await upsertPlayer(config.db, {
+          faceitPlayerId: freshPlayer.player_id,
+          nickname: freshPlayer.nickname,
+          avatar: freshPlayer.avatar,
+          country: freshPlayer.country,
+          skillLevel: cs2?.skill_level,
+          elo: cs2?.faceit_elo,
+        });
+        config.logger.info('faceit_profile_refreshed_after_match', {
+          matchId,
+          linkedUserId: linkedAccount.userId,
+          skillLevel: cs2?.skill_level ?? null,
+          elo: cs2?.faceit_elo ?? null,
+        });
+      } catch (error) {
+        config.logger.warn('faceit_profile_refresh_after_match_failed', {
+          matchId,
+          linkedUserId: linkedAccount.userId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
     config.logger.info('faceit_webhook_processed', { event, matchId, linkedUserId: linkedAccount.userId, status: normalized.status });
     return reply.send({ ok: true, event, matchId, status: normalized.status });
   });
