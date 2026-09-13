@@ -33,7 +33,7 @@ export async function matchAnalysisRoutes(app: FastifyInstance, config: AppConfi
         COALESCE(ps.headshots,0) AS headshots,ps.headshots_percent,COALESCE(ps.total_damage,0) AS total_damage,COALESCE(ps.mvps,0) AS mvps,
         COALESCE(ps.triple_kills,0) AS triple_kills,COALESCE(ps.quadro_kills,0) AS quadro_kills,COALESCE(ps.ace_kills,0) AS ace_kills
         FROM match_players mp JOIN players p ON p.id=mp.player_id LEFT JOIN player_statistics ps ON ps.match_id=mp.match_id AND ps.player_id=mp.player_id
-        JOIN faceit_accounts fa ON fa.faceit_player_id=p.faceit_player_id WHERE mp.match_id=${match.id} AND fa.user_id=${user.userId} LIMIT 1`,
+        JOIN faceit_accounts fa ON fa.faceit_user_id=p.faceit_player_id WHERE mp.match_id=${match.id} AND fa.user_id=${user.userId} LIMIT 1`,
       config.db`SELECT r.round_number,r.winner,r.side,r.win_reason,r.score_after_round,COALESCE(json_agg(json_build_object('eventType',e.event_type,'weapon',e.weapon,'damage',e.damage,'metadata',e.metadata_json)) FILTER(WHERE e.id IS NOT NULL),'[]'::json) AS events FROM rounds r LEFT JOIN player_round_events e ON e.round_id=r.id WHERE r.match_id=${match.id} GROUP BY r.id ORDER BY r.round_number ASC`,
       config.db`SELECT pattern_type,location,frequency,confidence,sample_size FROM opponent_patterns WHERE match_id=${match.id} ORDER BY sample_size DESC,frequency DESC LIMIT 10`,
       config.db`SELECT m.faceit_match_id,m.map,m.score_a,m.score_b,m.finished_at,
@@ -42,7 +42,7 @@ export async function matchAnalysisRoutes(app: FastifyInstance, config: AppConfi
         COALESCE(ps.utility_damage,0) AS utility_damage,COALESCE(ps.flash_assists,0) AS flash_assists,COALESCE(ps.clutches,0) AS clutches,
         ps.headshots_percent,COALESCE(ps.total_damage,0) AS total_damage
         FROM match_players mp JOIN matches m ON m.id=mp.match_id JOIN players p ON p.id=mp.player_id
-        JOIN faceit_accounts fa ON fa.faceit_player_id=p.faceit_player_id LEFT JOIN player_statistics ps ON ps.match_id=mp.match_id AND ps.player_id=mp.player_id
+        JOIN faceit_accounts fa ON fa.faceit_user_id=p.faceit_player_id LEFT JOIN player_statistics ps ON ps.match_id=mp.match_id AND ps.player_id=mp.player_id
         WHERE fa.user_id=${user.userId} AND m.id<>${match.id} ORDER BY m.finished_at DESC NULLS LAST LIMIT 20`,
     ]);
 
