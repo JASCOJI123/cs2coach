@@ -1,0 +1,83 @@
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+
+export type Language = 'uz' | 'ru' | 'en';
+const KEY = 'cs2coach.language';
+
+const dict = {
+  uz: {
+    home:'Bosh sahifa', matches:'Matchlar', liveAi:'Live AI', profile:'Profil', online:'ONLINE', offline:'OFFLINE',
+    welcome:'XUSH KELIBSIZ', level:'FACEIT Level', rating:'SIZNING REYTINGINGIZ', elo:'FACEIT ELO',
+    aiPowered:'AI POWERED', tactical:'AI TAKTIK TIZIM', playSmarter:'Aqlliroq o‘yna.', winMore:'Ko‘proq yut.', rankHigher:'Reytingni oshir.',
+    connect:'FACEIT BILAN ULASH', connecting:'FACEIT ochilmoqda…', disconnect:'FACEIT AKKAUNTI', disconnecting:'UZILMOQDA…',
+    noLive:'LIVE MATCH YO‘Q', systemReady:'Tizim tayyor.', startMatch:'FACEIT matchini boshlang — live taktik HUD shu yerda avtomatik paydo bo‘ladi.',
+    matchesRecorded:'ta yozilgan', liveGuidance:'Live ko‘rsatmalar', waitingMatch:'Match kutilmoqda', reviewPerformance:'Natijani ko‘rish',
+    recent:'SO‘NGGI FAOLIYAT', history:'Match tarixi', viewAll:'BARCHASINI KO‘RISH →', noHistory:'Hali match tarixi yo‘q.',
+    battleData:'JANG MA’LUMOTLARI', center:'Match Center', sync:'↻ SINXRONLASH', liveMatch:'LIVE MATCH', openHud:'HUDNI OCHISH →',
+    realtime:'REAL-TIME GAME STATE', coachReady:'AI COACH TAYYOR', matchesCount:'match', unknownMap:'Noma’lum xarita',
+    liveCoach:'Live Coach', matchReview:'Match tahlili', loading:'Match yuklanmoqda…', fetching:'FACEIT ma’lumotlari olinmoqda.',
+    liveDataMissing:'Live ma’lumot hali mavjud emas', historyFound:'Bu match tarixdan topildi, lekin real-time game state mavjud emas.', retry:'↻ QAYTA TEKSHIRISH',
+    askCoach:'🤖 AI COACHDAN SO‘RA', coachAnalysing:'Coach analiz qilmoqda…', postAnalysis:'📊 MATCHDAN KEYINGI AI TAHLIL',
+    analyzing:'MATCH TAHLIL QILINMOQDA…', roundSignals:'Round ma’lumotlari va performance signallari olinmoqda.', matchComplete:'MATCH YAKUNLANDI',
+    turnData:'MA’LUMOTNI', intoSkill:'SKILLGA AYLANTIR.', generate:'AI TAHLILNI YARATISH →', generating:'AI TAHLIL QILMOQDA…',
+    performanceScore:'PERFORMANCE BALLI', aiModel:'AI MODEL TAHLILI', ruleModel:'QOIDALAR ASOSIDAGI TAHLIL', skillBreakdown:'SKILL TAQSIMOTI',
+    performance:'Natija', roundReview:'ROUND TAHLILI', bestRound:'ENG YAXSHI ROUND', worstRound:'ENG YOMON ROUND', noData:'Yetarli ma’lumot yo‘q',
+    insights:'AI XULOSALARI', biggestMistakes:'Eng katta xatolar', goodDecisions:'Yaxshi qarorlar', opponent:'RAQIB MODELI', patterns:'Patternlar',
+    patternMissing:'Pattern hali yetarli emas.', development:'SHAXSIY RIVOJLANISH', training:'7 kunlik mashg‘ulot rejasi', day:'KUN', regenerate:'↻ TAHLILNI QAYTA YARATISH',
+    language:'Til', uz:'O‘zbekcha', ru:'Русский', en:'English',
+  },
+  ru: {
+    home:'Главная', matches:'Матчи', liveAi:'Live AI', profile:'Профиль', online:'ONLINE', offline:'OFFLINE',
+    welcome:'С ВОЗВРАЩЕНИЕМ', level:'FACEIT Level', rating:'ВАШ РЕЙТИНГ', elo:'FACEIT ELO',
+    aiPowered:'AI POWERED', tactical:'ТАКТИЧЕСКАЯ СИСТЕМА AI', playSmarter:'Играй умнее.', winMore:'Побеждай чаще.', rankHigher:'Поднимай рейтинг.',
+    connect:'ПОДКЛЮЧИТЬ FACEIT', connecting:'Открываем FACEIT…', disconnect:'FACEIT АККАУНТ', disconnecting:'ОТКЛЮЧЕНИЕ…',
+    noLive:'НЕТ LIVE МАТЧА', systemReady:'Система готова.', startMatch:'Начните матч FACEIT — live тактический HUD появится здесь автоматически.',
+    matchesRecorded:'записано', liveGuidance:'Live подсказки', waitingMatch:'Ожидание матча', reviewPerformance:'Посмотреть результат',
+    recent:'ПОСЛЕДНЯЯ АКТИВНОСТЬ', history:'История матчей', viewAll:'ПОСМОТРЕТЬ ВСЕ →', noHistory:'Истории матчей пока нет.',
+    battleData:'БОЕВЫЕ ДАННЫЕ', center:'Центр матчей', sync:'↻ СИНХРОНИЗАЦИЯ', liveMatch:'LIVE МАТЧ', openHud:'ОТКРЫТЬ HUD →',
+    realtime:'REAL-TIME GAME STATE', coachReady:'AI COACH ГОТОВ', matchesCount:'матчей', unknownMap:'Неизвестная карта',
+    liveCoach:'Live Coach', matchReview:'Обзор матча', loading:'Загрузка матча…', fetching:'Получаем данные FACEIT.',
+    liveDataMissing:'Live-данные пока недоступны', historyFound:'Матч найден в истории, но real-time game state пока недоступен.', retry:'↻ ПРОВЕРИТЬ СНОВА',
+    askCoach:'🤖 СПРОСИТЬ AI COACH', coachAnalysing:'Coach анализирует…', postAnalysis:'📊 AI АНАЛИЗ ПОСЛЕ МАТЧА',
+    analyzing:'АНАЛИЗ МАТЧА…', roundSignals:'Получаем данные раундов и сигналы производительности.', matchComplete:'МАТЧ ЗАВЕРШЁН',
+    turnData:'ПРЕВРАТИ ДАННЫЕ', intoSkill:'В НАВЫК.', generate:'СОЗДАТЬ AI АНАЛИЗ →', generating:'AI АНАЛИЗИРУЕТ…',
+    performanceScore:'ОЦЕНКА ИГРЫ', aiModel:'АНАЛИЗ AI МОДЕЛИ', ruleModel:'АНАЛИЗ ПО ПРАВИЛАМ', skillBreakdown:'РАЗБОР НАВЫКОВ',
+    performance:'Результат', roundReview:'РАЗБОР РАУНДОВ', bestRound:'ЛУЧШИЙ РАУНД', worstRound:'ХУДШИЙ РАУНД', noData:'Недостаточно данных',
+    insights:'AI ВЫВОДЫ', biggestMistakes:'Главные ошибки', goodDecisions:'Хорошие решения', opponent:'МОДЕЛЬ СОПЕРНИКА', patterns:'Паттерны',
+    patternMissing:'Пока недостаточно данных о паттернах.', development:'ЛИЧНОЕ РАЗВИТИЕ', training:'План тренировок на 7 дней', day:'ДЕНЬ', regenerate:'↻ ПЕРЕСОЗДАТЬ АНАЛИЗ',
+    language:'Язык', uz:'O‘zbekcha', ru:'Русский', en:'English',
+  },
+  en: {
+    home:'Home', matches:'Matches', liveAi:'Live AI', profile:'Profile', online:'ONLINE', offline:'OFFLINE',
+    welcome:'WELCOME BACK', level:'FACEIT Level', rating:'YOUR RATING', elo:'FACEIT ELO',
+    aiPowered:'AI POWERED', tactical:'AI TACTICAL SYSTEM', playSmarter:'Play smarter.', winMore:'Win more.', rankHigher:'Rank higher.',
+    connect:'CONNECT WITH FACEIT', connecting:'Opening FACEIT…', disconnect:'FACEIT ACCOUNT', disconnecting:'DISCONNECTING…',
+    noLive:'NO LIVE MATCH', systemReady:'System is ready.', startMatch:'Start a FACEIT match and your live tactical HUD will appear here automatically.',
+    matchesRecorded:'recorded', liveGuidance:'Live guidance', waitingMatch:'Waiting for match', reviewPerformance:'Review performance',
+    recent:'RECENT ACTIVITY', history:'Match history', viewAll:'VIEW ALL →', noHistory:'No match history yet.',
+    battleData:'BATTLE DATA', center:'Match Center', sync:'↻ SYNC', liveMatch:'LIVE MATCH', openHud:'OPEN HUD →',
+    realtime:'REAL-TIME GAME STATE', coachReady:'AI COACH READY', matchesCount:'matches', unknownMap:'Unknown map',
+    liveCoach:'Live Coach', matchReview:'Match Review', loading:'Match loading…', fetching:'Fetching FACEIT data.',
+    liveDataMissing:'Live data is not available yet', historyFound:'This match was found in history, but real-time game state is not available yet.', retry:'↻ CHECK AGAIN',
+    askCoach:'🤖 ASK AI COACH', coachAnalysing:'Coach is analysing…', postAnalysis:'📊 POST-MATCH AI ANALYSIS',
+    analyzing:'ANALYZING MATCH…', roundSignals:'Collecting round data and performance signals.', matchComplete:'MATCH COMPLETE',
+    turnData:'TURN DATA', intoSkill:'INTO SKILL.', generate:'GENERATE AI ANALYSIS →', generating:'AI ANALYZING…',
+    performanceScore:'PERFORMANCE SCORE', aiModel:'AI MODEL ANALYSIS', ruleModel:'RULE-BASED ANALYSIS', skillBreakdown:'SKILL BREAKDOWN',
+    performance:'Performance', roundReview:'ROUND REVIEW', bestRound:'BEST ROUND', worstRound:'WORST ROUND', noData:'Not enough data',
+    insights:'AI INSIGHTS', biggestMistakes:'Biggest mistakes', goodDecisions:'Good decisions', opponent:'OPPONENT MODEL', patterns:'Patterns',
+    patternMissing:'Not enough pattern data yet.', development:'PERSONAL DEVELOPMENT', training:'7-day training plan', day:'DAY', regenerate:'↻ REGENERATE ANALYSIS',
+    language:'Language', uz:'O‘zbekcha', ru:'Русский', en:'English',
+  },
+} as const;
+
+type Keys = keyof typeof dict.en;
+const I18nContext = createContext<{lang:Language;t:(key:Keys)=>string;setLang:(lang:Language)=>void}>({lang:'uz',t:(k)=>dict.uz[k],setLang:()=>{}});
+
+export function I18nProvider({children}:{children:ReactNode}){
+  const [lang,setLangState]=useState<Language>(()=>{try{const x=localStorage.getItem(KEY);return x==='ru'||x==='en'||x==='uz'?x:'uz';}catch{return 'uz';}});
+  const setLang=(next:Language)=>{setLangState(next);try{localStorage.setItem(KEY,next);}catch{}};
+  useEffect(()=>{document.documentElement.lang=lang;},[lang]);
+  const value=useMemo(()=>({lang,t:(key:Keys)=>dict[lang][key]??dict.en[key],setLang}),[lang]);
+  return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
+}
+export function useI18n(){return useContext(I18nContext);}
+export function LanguageSwitcher(){const {lang,setLang,t}=useI18n();return <div className="language-switcher" aria-label={t('language')}>{(['uz','ru','en'] as Language[]).map(x=><button key={x} className={lang===x?'selected':''} onClick={()=>setLang(x)} type="button">{x.toUpperCase()}</button>)}</div>;}
