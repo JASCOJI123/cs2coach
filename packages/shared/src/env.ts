@@ -94,7 +94,7 @@ export function loadEnv(): Env {
     faceitWebhookSecret: readString('FACEIT_WEBHOOK_SECRET'),
     cs2GsiToken: readString('CS2_GSI_TOKEN'),
     groqApiKey: readString('GROQ_API_KEY'),
-    groqModel: readString('GROQ_MODEL') ?? 'llama-3.3-70b-versatile',
+    groqModel: readString('GROQ_MODEL') ?? 'openai/gpt-oss-120b',
     faceitPollIntervalMs: readInt('FACEIT_POLL_INTERVAL_MS', 45_000),
   };
 }
