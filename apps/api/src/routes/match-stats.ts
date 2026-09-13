@@ -4,6 +4,7 @@ import { findFaceitAccountByUserId, getMatchByFaceitId } from '@cs2coach/databas
 import type { AppConfig } from '../config';
 import { requireAuth } from '../middleware/telegram-auth';
 import { userOwnsMatch } from './matches';
+import { syncFaceitPlayerMatchStats } from '../utils/faceit-stats';
 
 export async function matchStatsRoutes(app: FastifyInstance, config: AppConfig): Promise<void> {
   app.get('/api/matches/:faceitMatchId/stats', { preHandler: await requireAuth(config) }, async (request, reply) => {
@@ -15,7 +16,7 @@ export async function matchStatsRoutes(app: FastifyInstance, config: AppConfig):
       throw new AppError(codes.notFound, 'Match not found', 404);
     }
 
-    const rows = await config.db`
+    const loadRows = async () => config.db`
       SELECT p.nickname,p.faceit_player_id,p.avatar,p.skill_level,p.elo,mp.team,
         COALESCE(ps.kills,mp.kills,0) kills,COALESCE(ps.deaths,mp.deaths,0) deaths,COALESCE(ps.assists,mp.assists,0) assists,
         ps.adr,ps.kast,ps.rating,COALESCE(ps.opening_kills,0) opening_kills,COALESCE(ps.opening_deaths,0) opening_deaths,
@@ -25,8 +26,27 @@ export async function matchStatsRoutes(app: FastifyInstance, config: AppConfig):
       FROM match_players mp JOIN players p ON p.id=mp.player_id
       LEFT JOIN player_statistics ps ON ps.match_id=mp.match_id AND ps.player_id=mp.player_id
       WHERE mp.match_id=${match.id} ORDER BY ps.rating DESC NULLS LAST,ps.kills DESC`;
-    const playerRows = rows as Array<Record<string, unknown>>;
-    const mine = playerRows.find((r) => r.faceit_player_id === account.faceitUserId) ?? null;
+
+    let playerRows = (await loadRows()) as Array<Record<string, unknown>>;
+    let mine = playerRows.find((r) => r.faceit_player_id === account.faceitUserId) ?? null;
+
+    if (mine) {
+      const hasRealStats = [mine.kills, mine.deaths, mine.assists, mine.adr, mine.rating]
+        .some((value) => value != null && Number(value) !== 0);
+      if (!hasRealStats) {
+        try {
+          await syncFaceitPlayerMatchStats(config, match.id, String(mine.player_id), account.faceitUserId, faceitMatchId);
+          playerRows = (await loadRows()) as Array<Record<string, unknown>>;
+          mine = playerRows.find((r) => r.faceit_player_id === account.faceitUserId) ?? null;
+        } catch (error) {
+          config.logger.warn('faceit_match_stats_sync_failed', {
+            faceitMatchId,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+    }
+
     return reply.send({
       ok: true,
       data: {
