@@ -16,7 +16,8 @@
     "FACEIT_AUTH_BASE_URL": "https://api.faceit.com",
     "FACEIT_AUTHORIZE_BASE_URL": "https://accounts.faceit.com",
     "FACEIT_DATA_BASE_URL": "https://open.faceit.com/data/v4",
-    "GROQ_MODEL": "openai/gpt-oss-120b"
+    "GROQ_MODEL": "openai/gpt-oss-120b",
+    "TELEGRAM_WEBAPP_URL": "https://jascoji123.github.io/cs2coach/?v=20260913"
   },
   "hyperdrive": [
     {
@@ -31,6 +32,8 @@
     "required": [
       "SESSION_SECRET",
       "TELEGRAM_BOT_TOKEN",
+      "TELEGRAM_WEBHOOK_SECRET",
+      "TELEGRAM_WEBHOOK_URL",
       "FACEIT_API_KEY",
       "FACEIT_CLIENT_ID",
       "FACEIT_CLIENT_SECRET",
