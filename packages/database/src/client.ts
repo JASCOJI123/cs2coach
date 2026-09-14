@@ -24,7 +24,7 @@ export function getDb(url?: string, opts?: DbOptions): Sql {
     idle_timeout: 20,
     connect_timeout: 10,
     max_lifetime: 60 * 30,
-    prepare: true,
+    prepare: opts?.reuse === false ? false : true,
     fetch_types: false,
     ssl: opts?.ssl ?? (wantsRequireSsl ? 'require' : 'prefer'),
     transform: postgres.camel,
