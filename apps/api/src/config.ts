@@ -10,6 +10,7 @@ import {
   signSession,
   verifySession,
   type Env,
+  type EnvSource,
   type Logger,
   type SessionClaims,
   type MatchState,
@@ -71,10 +72,10 @@ function canonicalFaceitRedirectUri(configured?: string, webappUrl?: string): st
   return value.replace('cs2-coach-api.onrender.com', 'cs2coach-api.onrender.com');
 }
 
-export function createAppConfig(): AppConfig {
+export function createAppConfig(source?: EnvSource): AppConfig {
   if (singleton) return singleton;
 
-  const env = loadEnv();
+  const env = loadEnv(source);
   const logger = createLogger('api');
   const dbUrl = env.databaseUrl;
   if (!dbUrl) logger.warn('no_database_url', { msg: 'DATABASE_URL not set — DB calls will fail' });
