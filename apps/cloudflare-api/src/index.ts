@@ -43,6 +43,7 @@ async function ensureServer(env: WorkerEnv): Promise<void> {
       enableWebsocket: false,
       enableAutoSync: false,
       enableProcessSignals: false,
+      enableMiddlewarePlugins: false,
     };
     const app = await buildServer(appConfig, options);
     await app.listen({ port: PORT, host: '0.0.0.0' });
