@@ -41,4 +41,9 @@ export async function buildServer(config:AppConfig=createAppConfig(), options:Bu
   }
   return app;
 }
-const isMain=require.main===module;if(isMain){void(async()=>{const config=createAppConfig();if(config.env.databaseUrl)await runMigrations(config.db).then(names=>{if(names.length>0)config.logger.info('migrations_applied',{names})}).catch(err=>config.logger.warn('migrations_failed',{error:(err as Error).message}));const app=await buildServer(config);await app.listen({port:config.env.port,host:config.env.host});config.logger.info('server_listening',{port:config.env.port,host:config.env.host,nodeEnv:config.env.nodeEnv,demoMode:config.env.isDemoMode});await config.pingDb().catch(()=>config.logger.warn('initial_db_ping_failed',{}))})().catch(err=>{const logger=createLogger('api');logger.error('server_boot_failed',{error:err instanceof Error?err.message:String(err)});process.exit(1)})}
+
+// In Node/CommonJS this runs the standalone API server. In Cloudflare's ESM Worker
+// runtime `module` and `require` are absent, so the guard must not reference them
+// directly. The Worker imports buildServer without executing this block.
+const isMain = typeof module !== 'undefined' && typeof require !== 'undefined' && require.main === module;
+if(isMain){void(async()=>{const config=createAppConfig();if(config.env.databaseUrl)await runMigrations(config.db).then(names=>{if(names.length>0)config.logger.info('migrations_applied',{names})}).catch(err=>config.logger.warn('migrations_failed',{error:(err as Error).message}));const app=await buildServer(config);await app.listen({port:config.env.port,host:config.env.host});config.logger.info('server_listening',{port:config.env.port,host:config.env.host,nodeEnv:config.env.nodeEnv,demoMode:config.env.isDemoMode});await config.pingDb().catch(()=>config.logger.warn('initial_db_ping_failed',{}))})().catch(err=>{const logger=createLogger('api');logger.error('server_boot_failed',{error:err instanceof Error?err.message:String(err)});process.exit(1)})}
