@@ -1,4 +1,4 @@
-import { findFaceitAccountByUserId, findUserByTelegramId, listMatchesForUser } from '../../packages/database/src/index';
+import { findFaceitAccountByUserId, findUserByTelegramId, listMatchesForUser } from '../../../packages/database/src/index';
 import type { AppConfig } from '../../api/src/config';
 
 type TelegramUpdate = {
@@ -12,6 +12,7 @@ type TelegramUpdate = {
 type TelegramEnv = {
   TELEGRAM_BOT_TOKEN?: string;
   TELEGRAM_WEBHOOK_SECRET?: string;
+  TELEGRAM_WEBHOOK_URL?: string;
   TELEGRAM_WEBAPP_URL?: string;
 };
 
@@ -99,7 +100,7 @@ export async function handleTelegramWebhook(request: Request, env: TelegramEnv, 
 }
 
 export async function configureTelegramWebhook(env: TelegramEnv, config: AppConfig): Promise<void> {
-  const webhookUrl = (env as TelegramEnv & { TELEGRAM_WEBHOOK_URL?: string }).TELEGRAM_WEBHOOK_URL;
+  const webhookUrl = env.TELEGRAM_WEBHOOK_URL;
   if (!env.TELEGRAM_BOT_TOKEN || !webhookUrl) return;
   await telegramApi(env, 'setWebhook', {
     url: webhookUrl,
