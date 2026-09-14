@@ -15,10 +15,10 @@ import { demoRoutes } from '../../api/src/routes/demo';
 
 type Handler = (request: any, reply: any) => unknown | Promise<unknown>;
 type RouteOptions = { preHandler?: Handler | Handler[] };
-type Route = { method: string; path: string; handler: Handler; preHandler?: Handler | Handler[] };
+export type WorkerRoute = { method: string; path: string; handler: Handler; preHandler?: Handler | Handler[] };
 
 export class WorkerRouter {
-  readonly routes: Route[] = [];
+  readonly routes: WorkerRoute[] = [];
   get(path: string, optionsOrHandler: RouteOptions | Handler, maybeHandler?: Handler): void { this.add('GET', path, optionsOrHandler, maybeHandler); }
   post(path: string, optionsOrHandler: RouteOptions | Handler, maybeHandler?: Handler): void { this.add('POST', path, optionsOrHandler, maybeHandler); }
   delete(path: string, optionsOrHandler: RouteOptions | Handler, maybeHandler?: Handler): void { this.add('DELETE', path, optionsOrHandler, maybeHandler); }
