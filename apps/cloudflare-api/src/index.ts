@@ -45,22 +45,36 @@ async function ensureServer(env: WorkerEnv): Promise<void> {
       enableProcessSignals: false,
     };
     const app = await buildServer(appConfig, options);
-    // Cloudflare's node:http server uses this port as an internal routing key.
     await app.listen({ port: PORT, host: '0.0.0.0' });
   })();
 
-  await serverPromise;
+  try {
+    await serverPromise;
+  } catch (error) {
+    serverPromise = undefined;
+    console.error('worker_server_startup_failed', error);
+    throw error;
+  }
 }
 
 export default {
   async fetch(request: Request, env: WorkerEnv): Promise<Response> {
-    const pathname = new URL(request.url).pathname;
-    if (pathname === '/telegram/webhook') {
+    try {
+      const pathname = new URL(request.url).pathname;
+      if (pathname === '/telegram/webhook') {
+        await ensureServer(env);
+        return handleTelegramWebhook(request, env, appConfig!);
+      }
       await ensureServer(env);
-      return handleTelegramWebhook(request, env, appConfig!);
+      return handleAsNodeRequest(PORT, request);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('worker_request_failed', error);
+      return new Response(JSON.stringify({ ok: false, error: message }), {
+        status: 500,
+        headers: { 'content-type': 'application/json; charset=utf-8' },
+      });
     }
-    await ensureServer(env);
-    return handleAsNodeRequest(PORT, request);
   },
 
   async scheduled(_controller: ScheduledController, env: WorkerEnv): Promise<void> {
