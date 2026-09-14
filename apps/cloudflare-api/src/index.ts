@@ -1,8 +1,8 @@
-import { handleAsNodeRequest } from 'cloudflare:node';
-import { buildServer, type BuildServerOptions } from '../../api/src/server';
 import { createAppConfig, type AppConfig } from '../../api/src/config';
+import { getDb } from '@cs2coach/database';
 import { syncFaceitAccountsOnce } from '../../api/src/faceit-auto-sync';
 import { configureTelegramWebhook, handleTelegramWebhook } from './telegram';
+import { createWorkerRouter, handleWorkerRequest, type WorkerRouter } from './worker-router';
 
 type HyperdriveBinding = { connectionString: string };
 
@@ -14,8 +14,6 @@ type WorkerEnv = Record<string, unknown> & {
   TELEGRAM_WEBAPP_URL?: string;
 };
 
-const PORT = 8787;
-
 function toAppEnv(env: WorkerEnv): Record<string, unknown> {
   const source: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(env)) {
@@ -23,51 +21,37 @@ function toAppEnv(env: WorkerEnv): Record<string, unknown> {
   }
   source.NODE_ENV = 'production';
   source.HOST = '0.0.0.0';
-  source.PORT = String(PORT);
+  source.PORT = '8787';
   source.DATABASE_URL = env.HYPERDRIVE.connectionString;
   return source;
 }
 
-let serverPromise: Promise<unknown> | undefined;
 let appConfig: AppConfig | undefined;
+let workerRouter: WorkerRouter | undefined;
 
-async function ensureServer(env: WorkerEnv): Promise<void> {
-  if (serverPromise) {
-    await serverPromise;
-    return;
-  }
-
-  serverPromise = (async () => {
-    appConfig = createAppConfig(toAppEnv(env));
-    const options: BuildServerOptions = {
-      enableWebsocket: false,
-      enableAutoSync: false,
-      enableProcessSignals: false,
-      enableMiddlewarePlugins: false,
+async function ensureRuntime(env: WorkerEnv): Promise<{ config: AppConfig; router: WorkerRouter }> {
+  if (!appConfig) {
+    appConfig = createAppConfig(toAppEnv(env), { singleton: false, requestScopedDb: true });
+    workerRouter = await createWorkerRouter(appConfig);
+  } else {
+    // Hyperdrive clients are request-scoped in Workers. Rebind the shared
+    // service graph to a fresh client while retaining in-memory match/AI state.
+    appConfig.db = getDb(env.HYPERDRIVE.connectionString, { reuse: false });
+    appConfig.pingDb = async () => {
+      const [{ ok }] = await appConfig!.db`select true as ok`;
+      if (ok !== true) throw new Error('database ping failed');
     };
-    const app = await buildServer(appConfig, options);
-    await app.listen({ port: PORT, host: '0.0.0.0' });
-  })();
-
-  try {
-    await serverPromise;
-  } catch (error) {
-    serverPromise = undefined;
-    console.error('worker_server_startup_failed', error);
-    throw error;
   }
+  return { config: appConfig, router: workerRouter! };
 }
 
 export default {
   async fetch(request: Request, env: WorkerEnv): Promise<Response> {
     try {
+      const { config, router } = await ensureRuntime(env);
       const pathname = new URL(request.url).pathname;
-      if (pathname === '/telegram/webhook') {
-        await ensureServer(env);
-        return handleTelegramWebhook(request, env, appConfig!);
-      }
-      await ensureServer(env);
-      return handleAsNodeRequest(PORT, request);
+      if (pathname === '/telegram/webhook') return handleTelegramWebhook(request, env, config);
+      return await handleWorkerRequest(request, router, config);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       console.error('worker_request_failed', error);
@@ -79,8 +63,7 @@ export default {
   },
 
   async scheduled(_controller: ScheduledController, env: WorkerEnv): Promise<void> {
-    const config = appConfig ?? createAppConfig(toAppEnv(env));
-    appConfig = config;
+    const config = createAppConfig(toAppEnv(env), { singleton: false, requestScopedDb: true });
     await syncFaceitAccountsOnce(config);
     await configureTelegramWebhook(env, config);
   },
