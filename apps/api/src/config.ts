@@ -1,39 +1,18 @@
 /**
  * Composition root for the API layer: reads env once, creates all shared
  * singletons (DB, clients, engines, AI queue), and exposes them as `AppConfig`.
- * Every route handler pulls dependencies from here — no global mutable state
- * leaks outside this module.
  */
 import {
-  loadEnv,
-  createLogger,
-  signSession,
-  verifySession,
-  type Env,
-  type EnvSource,
-  type Logger,
-  type SessionClaims,
-  type MatchState,
+  loadEnv, createLogger, signSession, verifySession, type Env, type EnvSource, type Logger, type SessionClaims, type MatchState,
 } from '@cs2coach/shared';
 import { getDb, pingDb } from '@cs2coach/database';
 import {
-  FaceitApiClient,
-  buildAuthorizeUrl,
-  exchangeCodeForToken,
-  refreshAccessToken,
-  getUserInfo,
-  extractFaceitUserIdFromIdToken,
-  randomOAuthState,
+  FaceitApiClient, buildAuthorizeUrl, exchangeCodeForToken, refreshAccessToken, getUserInfo,
+  extractFaceitUserIdFromIdToken, randomOAuthState,
 } from '@cs2coach/faceit';
 import { AiCoordinator, GroqClient, TacticalAIValidator } from '@cs2coach/ai';
 import type { OAuthConfig, OAuthStart, TokenSet, FaceitUserInfo } from '@cs2coach/faceit';
-import {
-  MatchStateEngine,
-  OpponentModel,
-  FaceitMatchProvider,
-  CS2GameStateProvider,
-  DemoGameStateProvider,
-} from '@cs2coach/game-state';
+import { MatchStateEngine, OpponentModel, FaceitMatchProvider, CS2GameStateProvider, DemoGameStateProvider } from '@cs2coach/game-state';
 
 export interface AppConfig {
   env: Env;
@@ -64,6 +43,11 @@ export interface AppConfig {
   verifySession: (token: string) => SessionClaims | null;
 }
 
+export interface AppConfigOptions {
+  singleton?: boolean;
+  requestScopedDb?: boolean;
+}
+
 let singleton: AppConfig | null = null;
 
 function canonicalFaceitRedirectUri(configured?: string, webappUrl?: string): string {
@@ -72,14 +56,15 @@ function canonicalFaceitRedirectUri(configured?: string, webappUrl?: string): st
   return value.replace('cs2-coach-api.onrender.com', 'cs2coach-api.onrender.com');
 }
 
-export function createAppConfig(source?: EnvSource): AppConfig {
-  if (singleton) return singleton;
+export function createAppConfig(source?: EnvSource, options: AppConfigOptions = {}): AppConfig {
+  const useSingleton = options.singleton !== false;
+  if (useSingleton && singleton) return singleton;
 
   const env = loadEnv(source);
   const logger = createLogger('api');
   const dbUrl = env.databaseUrl;
   if (!dbUrl) logger.warn('no_database_url', { msg: 'DATABASE_URL not set — DB calls will fail' });
-  const db = getDb(dbUrl ?? 'postgresql://localhost:5432/cs2coach');
+  const db = getDb(dbUrl ?? 'postgresql://localhost:5432/cs2coach', { reuse: options.requestScopedDb === true ? false : true });
   const ping = async () => {
     try { await pingDb(db); }
     catch (err) { logger.warn('db_ping_failed', { error: (err as Error).message }); throw err; }
@@ -87,22 +72,17 @@ export function createAppConfig(source?: EnvSource): AppConfig {
 
   const faceitClient = new FaceitApiClient({ apiKey: env.faceitApiKey ?? '', baseUrl: env.faceitDataBaseUrl, logger });
   const oauthConfig: OAuthConfig = {
-    clientId: env.faceitClientId ?? '',
-    clientSecret: env.faceitClientSecret ?? '',
+    clientId: env.faceitClientId ?? '', clientSecret: env.faceitClientSecret ?? '',
     redirectUri: canonicalFaceitRedirectUri(env.faceitRedirectUri, env.telegramWebappUrl),
-    authBaseUrl: env.faceitAuthBaseUrl,
-    authorizeBaseUrl: env.faceitAuthorizeBaseUrl,
+    authBaseUrl: env.faceitAuthBaseUrl, authorizeBaseUrl: env.faceitAuthorizeBaseUrl,
   };
   const faceitOAuth = {
-    oauthConfig,
-    buildAuthorizeUrl,
+    oauthConfig, buildAuthorizeUrl,
     exchangeCodeForToken: (code: string, codeVerifier?: string) => exchangeCodeForToken(oauthConfig, code, codeVerifier),
     refreshAccessToken: (refreshToken: string) => refreshAccessToken(oauthConfig, refreshToken),
     getUserInfo: (accessToken: string) => getUserInfo(oauthConfig, accessToken),
-    extractFaceitUserIdFromIdToken,
-    randomOAuthState,
+    extractFaceitUserIdFromIdToken, randomOAuthState,
   };
-
   const opponentModel = new OpponentModel();
   const matchStateEngine = new MatchStateEngine({
     learn: (state, event) => opponentModel.learn(state, event),
@@ -127,6 +107,11 @@ export function createAppConfig(source?: EnvSource): AppConfig {
     return signSession(env.sessionSecret, { ...claims, iat: now, exp: now + env.sessionTtlMs });
   };
   const sessionVerify = (token: string) => verifySession(env.sessionSecret, token);
-  singleton = { env, logger, db, pingDb: ping, faceitClient, faceitOAuth, opponentModel, matchStateEngine, faceitMatchProvider, cs2GameStateProvider, demoProvider, groqClient, aiValidator, aiCoordinator, broadcastState: undefined, broadcastDecision: undefined, signSession: sessionSign, verifySession: sessionVerify };
-  return singleton;
+  const result: AppConfig = {
+    env, logger, db, pingDb: ping, faceitClient, faceitOAuth, opponentModel, matchStateEngine,
+    faceitMatchProvider, cs2GameStateProvider, demoProvider, groqClient, aiValidator, aiCoordinator,
+    broadcastState: undefined, broadcastDecision: undefined, signSession: sessionSign, verifySession: sessionVerify,
+  };
+  if (useSingleton) singleton = result;
+  return result;
 }
