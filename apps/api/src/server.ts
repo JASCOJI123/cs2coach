@@ -18,12 +18,28 @@ export interface BuildServerOptions {
   enableAutoSync?: boolean;
   /** Workers do not expose a process lifecycle like a long-running Node server. */
   enableProcessSignals?: boolean;
+  /** Cloudflare's node compatibility layer can deadlock Fastify middleware plugins during startup. */
+  enableMiddlewarePlugins?: boolean;
 }
 
 export async function buildServer(config:AppConfig=createAppConfig(), options:BuildServerOptions={}):Promise<FastifyInstance>{
   const logger=config.logger,app=Fastify({logger:false,trustProxy:true}),origins=config.env.allowedOrigins;
-  await app.register(cors,{origin(origin,cb){if(!origin||origins.length===0||origins.includes(origin)){cb(null,true);return}cb(new AppError('CORS',`Origin not allowed: ${origin}`,403),false)},credentials:true});
-  await app.register(rateLimit,{max:1000,timeWindow:'1 minute'});
+  if (options.enableMiddlewarePlugins !== false) {
+    await app.register(cors,{origin(origin,cb){if(!origin||origins.length===0||origins.includes(origin)){cb(null,true);return}cb(new AppError('CORS',`Origin not allowed: ${origin}`,403),false)},credentials:true});
+    await app.register(rateLimit,{max:1000,timeWindow:'1 minute'});
+  } else {
+    // Workers handle CORS at the fetch boundary; keep Fastify free of Node-centric plugins.
+    app.addHook('onSend',async(request,reply)=>{
+      const origin=String(request.headers.origin ?? '');
+      if (!origin || origins.length===0 || origins.includes(origin)) {
+        if (origin) reply.header('access-control-allow-origin',origin);
+        reply.header('access-control-allow-credentials','true');
+        reply.header('access-control-allow-headers','Content-Type, Authorization, X-Telegram-Init-Data');
+        reply.header('access-control-allow-methods','GET,POST,PUT,PATCH,DELETE,OPTIONS');
+      }
+    });
+    app.options('*',async(request,reply)=>reply.code(204).send());
+  }
   if (options.enableWebsocket !== false) await app.register(websocket);
   app.get('/',async(_request,reply)=>reply.send({ok:true,service:'cs2coach-api',description:'CS2 AI COACH backend — Telegram Mini App API',version:'0.4.0',endpoints:{health:'/health',apiHealth:'/api/health',telegramAuth:'/api/auth/telegram',faceitAuth:'/api/auth/faceit',faceitProfileRefresh:'/api/auth/faceit/refresh-profile',matches:'/api/matches',matchAnalysis:'/api/matches/:faceitMatchId/analysis',matchStats:'/api/matches/:faceitMatchId/stats',subscription:'/api/subscription',faceitWebhook:'/api/webhooks/faceit',gsi:'/api/game-state/gsi',gameState:'/api/game-state',demo:'/api/demo'},dataPolicy:'No fake data — unavailable state is shown as is'}));
   await healthRoutes(app,config); await telegramAuthRoutes(app,config); await faceitAuthRoutes(app,config); await faceitProfileRoutes(app,config); await faceitWebhookRoutes(app,config); await subscriptionRoutes(app,config); await matchesRoutes(app,config); await matchAnalysisRoutes(app,config); await matchStatsRoutes(app,config); await gameStateRoutes(app,config); await gameStateGsiRoutes(app,config); await demoRoutes(app,config);
