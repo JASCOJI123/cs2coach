@@ -48,8 +48,16 @@ async function ensureRuntime(env: WorkerEnv): Promise<{ config: AppConfig; route
 export default {
   async fetch(request: Request, env: WorkerEnv): Promise<Response> {
     try {
-      const { config, router } = await ensureRuntime(env);
       const pathname = new URL(request.url).pathname;
+
+      // Keep the liveness probe completely independent from the application
+      // dependency graph. This lets Cloudflare verify the Worker runtime even
+      // if a Node-oriented application dependency fails during lazy bootstrap.
+      if (pathname === '/' || pathname === '/health') {
+        return Response.json({ ok: true, service: 'cs2coach-api', runtime: 'cloudflare-workers' });
+      }
+
+      const { config, router } = await ensureRuntime(env);
       if (pathname === '/telegram/webhook') return handleTelegramWebhook(request, env, config);
       return await handleWorkerRequest(request, router, config);
     } catch (error) {
