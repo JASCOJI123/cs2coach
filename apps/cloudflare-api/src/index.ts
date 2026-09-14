@@ -2,11 +2,16 @@ import { handleAsNodeRequest } from 'cloudflare:node';
 import { buildServer, type BuildServerOptions } from '../../api/src/server';
 import { createAppConfig, type AppConfig } from '../../api/src/config';
 import { syncFaceitAccountsOnce } from '../../api/src/faceit-auto-sync';
+import { configureTelegramWebhook, handleTelegramWebhook } from './telegram';
 
 type HyperdriveBinding = { connectionString: string };
 
 type WorkerEnv = Record<string, unknown> & {
   HYPERDRIVE: HyperdriveBinding;
+  TELEGRAM_BOT_TOKEN?: string;
+  TELEGRAM_WEBHOOK_SECRET?: string;
+  TELEGRAM_WEBHOOK_URL?: string;
+  TELEGRAM_WEBAPP_URL?: string;
 };
 
 const PORT = 8787;
@@ -49,6 +54,11 @@ async function ensureServer(env: WorkerEnv): Promise<void> {
 
 export default {
   async fetch(request: Request, env: WorkerEnv): Promise<Response> {
+    const pathname = new URL(request.url).pathname;
+    if (pathname === '/telegram/webhook') {
+      await ensureServer(env);
+      return handleTelegramWebhook(request, env, appConfig!);
+    }
     await ensureServer(env);
     return handleAsNodeRequest(PORT, request);
   },
@@ -57,5 +67,6 @@ export default {
     const config = appConfig ?? createAppConfig(toAppEnv(env));
     appConfig = config;
     await syncFaceitAccountsOnce(config);
+    await configureTelegramWebhook(env, config);
   },
 };
