@@ -16,6 +16,8 @@ export interface BuildServerOptions {
   enableWebsocket?: boolean;
   /** Node uses the interval-based sync; Workers use a Cron Trigger instead. */
   enableAutoSync?: boolean;
+  /** Workers do not expose a process lifecycle like a long-running Node server. */
+  enableProcessSignals?: boolean;
 }
 
 export async function buildServer(config:AppConfig=createAppConfig(), options:BuildServerOptions={}):Promise<FastifyInstance>{
@@ -33,6 +35,10 @@ export async function buildServer(config:AppConfig=createAppConfig(), options:Bu
   }
   app.setErrorHandler((error,request,reply)=>{const status=isAppError(error)?(error.status??500):(typeof(error as{statusCode?:unknown}).statusCode==='number'?Number((error as{statusCode:number}).statusCode):500);const body=toErrorBody(error);logger.warn('request_error',{path:request.url,status,code:body.code,error:error instanceof Error?error.message:String(error)});reply.status(status).send(body)});
   const stopFaceitAutoSync=options.enableAutoSync === false ? () => undefined : startFaceitAutoSync(config);
-  const shutdown=async(signal:string)=>{logger.info('shutdown',{signal});stopFaceitAutoSync();config.faceitMatchProvider.stopAll();config.demoProvider?.stop();await app.close();process.exit(0)}; process.on('SIGINT',()=>void shutdown('SIGINT')); process.on('SIGTERM',()=>void shutdown('SIGTERM')); return app;
+  if (options.enableProcessSignals !== false) {
+    const shutdown=async(signal:string)=>{logger.info('shutdown',{signal});stopFaceitAutoSync();config.faceitMatchProvider.stopAll();config.demoProvider?.stop();await app.close();process.exit(0)};
+    process.on('SIGINT',()=>void shutdown('SIGINT')); process.on('SIGTERM',()=>void shutdown('SIGTERM'));
+  }
+  return app;
 }
 const isMain=require.main===module;if(isMain){void(async()=>{const config=createAppConfig();if(config.env.databaseUrl)await runMigrations(config.db).then(names=>{if(names.length>0)config.logger.info('migrations_applied',{names})}).catch(err=>config.logger.warn('migrations_failed',{error:(err as Error).message}));const app=await buildServer(config);await app.listen({port:config.env.port,host:config.env.host});config.logger.info('server_listening',{port:config.env.port,host:config.env.host,nodeEnv:config.env.nodeEnv,demoMode:config.env.isDemoMode});await config.pingDb().catch(()=>config.logger.warn('initial_db_ping_failed',{}))})().catch(err=>{const logger=createLogger('api');logger.error('server_boot_failed',{error:err instanceof Error?err.message:String(err)});process.exit(1)})}
