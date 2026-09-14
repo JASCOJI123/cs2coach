@@ -17,25 +17,13 @@ type Handler = (request: any, reply: any) => unknown | Promise<unknown>;
 type RouteOptions = { preHandler?: Handler | Handler[] };
 type Route = { method: string; path: string; handler: Handler; preHandler?: Handler | Handler[] };
 
-class WorkerRouter {
+export class WorkerRouter {
   readonly routes: Route[] = [];
-
-  get(path: string, optionsOrHandler: RouteOptions | Handler, maybeHandler?: Handler): void {
-    this.add('GET', path, optionsOrHandler, maybeHandler);
-  }
-  post(path: string, optionsOrHandler: RouteOptions | Handler, maybeHandler?: Handler): void {
-    this.add('POST', path, optionsOrHandler, maybeHandler);
-  }
-  delete(path: string, optionsOrHandler: RouteOptions | Handler, maybeHandler?: Handler): void {
-    this.add('DELETE', path, optionsOrHandler, maybeHandler);
-  }
-  put(path: string, optionsOrHandler: RouteOptions | Handler, maybeHandler?: Handler): void {
-    this.add('PUT', path, optionsOrHandler, maybeHandler);
-  }
-  patch(path: string, optionsOrHandler: RouteOptions | Handler, maybeHandler?: Handler): void {
-    this.add('PATCH', path, optionsOrHandler, maybeHandler);
-  }
-
+  get(path: string, optionsOrHandler: RouteOptions | Handler, maybeHandler?: Handler): void { this.add('GET', path, optionsOrHandler, maybeHandler); }
+  post(path: string, optionsOrHandler: RouteOptions | Handler, maybeHandler?: Handler): void { this.add('POST', path, optionsOrHandler, maybeHandler); }
+  delete(path: string, optionsOrHandler: RouteOptions | Handler, maybeHandler?: Handler): void { this.add('DELETE', path, optionsOrHandler, maybeHandler); }
+  put(path: string, optionsOrHandler: RouteOptions | Handler, maybeHandler?: Handler): void { this.add('PUT', path, optionsOrHandler, maybeHandler); }
+  patch(path: string, optionsOrHandler: RouteOptions | Handler, maybeHandler?: Handler): void { this.add('PATCH', path, optionsOrHandler, maybeHandler); }
   private add(method: string, path: string, optionsOrHandler: RouteOptions | Handler, maybeHandler?: Handler): void {
     const options = typeof optionsOrHandler === 'function' ? {} : optionsOrHandler;
     const handler = typeof optionsOrHandler === 'function' ? optionsOrHandler : maybeHandler;
@@ -45,13 +33,11 @@ class WorkerRouter {
 }
 
 function matchPath(pattern: string, pathname: string): Record<string, string> | null {
-  const a = pattern.split('/').filter(Boolean);
-  const b = pathname.split('/').filter(Boolean);
+  const a = pattern.split('/').filter(Boolean), b = pathname.split('/').filter(Boolean);
   if (a.length !== b.length) return null;
   const params: Record<string, string> = {};
   for (let i = 0; i < a.length; i += 1) {
-    const expected = a[i]!;
-    const actual = b[i]!;
+    const expected = a[i]!, actual = b[i]!;
     if (expected.startsWith(':')) params[expected.slice(1)] = decodeURIComponent(actual);
     else if (expected !== actual) return null;
   }
@@ -110,9 +96,7 @@ export async function createWorkerRouter(config: AppConfig): Promise<WorkerRoute
 }
 
 export async function handleWorkerRequest(request: Request, router: WorkerRouter, config: AppConfig): Promise<Response> {
-  const url = new URL(request.url);
-  const origin = request.headers.get('origin') ?? undefined;
-
+  const url = new URL(request.url), origin = request.headers.get('origin') ?? undefined;
   if (request.method === 'OPTIONS') {
     const headers = new Headers({
       'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
@@ -121,46 +105,22 @@ export async function handleWorkerRequest(request: Request, router: WorkerRouter
     });
     return responseWithCors(new Response(null, { status: 204, headers }), origin, config.env.allowedOrigins);
   }
-
   const route = router.routes.find((candidate) => candidate.method === request.method && matchPath(candidate.path, url.pathname) !== null);
   if (!route) return responseWithCors(jsonResponse({ ok: false, error: { code: 'NOT_FOUND', message: 'Route not found' } }, 404), origin, config.env.allowedOrigins);
-
   const params = matchPath(route.path, url.pathname)!;
   const body = await parseBody(request);
-  const req: any = {
-    body,
-    params,
-    query: Object.fromEntries(url.searchParams.entries()),
-    headers: normalizeHeaders(request),
-    method: request.method,
-    url: `${url.pathname}${url.search}`,
-    raw: request,
-    ip: request.headers.get('cf-connecting-ip') ?? undefined,
-  };
-
+  const req: any = { body, params, query: Object.fromEntries(url.searchParams.entries()), headers: normalizeHeaders(request), method: request.method, url: `${url.pathname}${url.search}`, raw: request, ip: request.headers.get('cf-connecting-ip') ?? undefined };
   let status = 200;
   const headers = new Headers();
-  let sent = false;
   let sentResponse: Response | undefined;
   const reply: any = {
-    send(payload: unknown) {
-      sent = true;
-      sentResponse = payload instanceof Response ? payload : jsonResponse(payload, status, headers);
-      return sentResponse;
-    },
+    send(payload: unknown) { sentResponse = payload instanceof Response ? payload : jsonResponse(payload, status, headers); return sentResponse; },
     status(code: number) { status = code; return reply; },
     code(code: number) { status = code; return reply; },
     header(name: string, value: string) { headers.set(name, value); return reply; },
     type(value: string) { headers.set('content-type', value); return reply; },
-    redirect(location: string, code = 302) {
-      status = code;
-      headers.set('location', location);
-      sent = true;
-      sentResponse = new Response(null, { status, headers });
-      return sentResponse;
-    },
+    redirect(location: string, code = 302) { status = code; headers.set('location', location); sentResponse = new Response(null, { status, headers }); return sentResponse; },
   };
-
   try {
     const preHandlers = route.preHandler ? (Array.isArray(route.preHandler) ? route.preHandler : [route.preHandler]) : [];
     for (const preHandler of preHandlers) await preHandler(req, reply);
