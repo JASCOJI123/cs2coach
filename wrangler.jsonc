@@ -1,0 +1,43 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "cs2coach-api",
+  "main": "apps/cloudflare-api/src/index.ts",
+  "compatibility_date": "2026-09-14",
+  "compatibility_flags": [
+    "nodejs_compat",
+    "enable_nodejs_http_server_modules"
+  ],
+  "workers_dev": true,
+  "observability": {
+    "enabled": true
+  },
+  "vars": {
+    "ALLOWED_ORIGINS": "https://jascoji123.github.io",
+    "FACEIT_AUTH_BASE_URL": "https://api.faceit.com",
+    "FACEIT_AUTHORIZE_BASE_URL": "https://accounts.faceit.com",
+    "FACEIT_DATA_BASE_URL": "https://open.faceit.com/data/v4",
+    "GROQ_MODEL": "openai/gpt-oss-120b"
+  },
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      "id": "REPLACE_WITH_HYPERDRIVE_ID"
+    }
+  ],
+  "triggers": {
+    "crons": ["*/5 * * * *"]
+  },
+  "secrets": {
+    "required": [
+      "SESSION_SECRET",
+      "TELEGRAM_BOT_TOKEN",
+      "FACEIT_API_KEY",
+      "FACEIT_CLIENT_ID",
+      "FACEIT_CLIENT_SECRET",
+      "FACEIT_REDIRECT_URI",
+      "FACEIT_WEBHOOK_SECRET",
+      "CS2_GSI_TOKEN",
+      "GROQ_API_KEY"
+    ]
+  }
+}
