@@ -1,56 +1,34 @@
-# Render Blueprint for CS2 AI COACH (spec §68–§70).
-#
-# Free-tier allocation (Render Free limits):
-#   - 1 × Web Service total per account  → cs2coach-api (Fastify backend)
-#   - Background Workers are NOT available on the free plan (pullik talab)
-#   - Static Sites are free but the blueprint type is NOT supported in YAML
-#
-# So this Blueprint contains ONLY the API. The other two pieces are manual:
-#
-#   ● Frontend (Static Site) — create manually:
-#       New + → Static Site → GitHub → repo: JASCOJI123/cs2coach
-#       Root Dir: .   (monorepo — lockfile & workspaces live at the root)
-#       Build:  npm ci --include=dev && npm run build && npm run build:web
-#       Publish: apps/web/dist
-#       Env var: VITE_API_URL=https://cs2coach-api.onrender.com   (build-time)
-#       URL: https://cs2coach-frontend.onrender.com  →  set ALLOWED_ORIGINS
-#                (and TELEGRAM_WEBAPP_URL for the Mini App host)
-#
-#   ● Telegram bot — cannot run on Render Free (no worker, single web slot
-#     taken by the API). Run it locally (npm run dev:bot) or on another host.
-#
-#   Postgres: Neon Free (set DATABASE_URL in the API env group).
-#
 services:
   - type: web
     name: cs2coach-api
     runtime: node
-    region: frankfurt
     plan: free
-    rootDir: .
+    region: frankfurt
+    buildCommand: npm ci --include=dev && npm run build --workspace=@cs2coach/api
+    startCommand: npm run start --workspace=@cs2coach/api
     healthCheckPath: /health
-    # --include=dev is REQUIRED: NODE_ENV=production (set below) makes npm omit
-    # devDependencies (typescript, @types/node, vite, tsx…), and the whole build
-    # is devDep-driven — otherwise tsc finds no @types and the build fails.
-    buildCommand: npm ci --include=dev && npm run build
-    startCommand: node apps/api/dist/server.js
-    autoDeploy: true
+    buildFilter:
+      paths:
+        - apps/api/**
+        - packages/**
+        - package.json
+        - package-lock.json
+        - tsconfig.json
+        - render.yaml
     envVars:
       - key: NODE_ENV
         value: production
       - key: HOST
         value: 0.0.0.0
       - key: PORT
-        value: 8080
+        value: 10000
       - key: ALLOWED_ORIGINS
-        sync: false # set in dashboard: https://cs2coach-frontend.onrender.com
-      - key: SESSION_SECRET
-        sync: false # strong random value
+        value: https://jascoji123.github.io
+      - key: GROQ_MODEL
+        value: openai/gpt-oss-120b
       - key: DATABASE_URL
-        sync: false # Neon Free connection string (sslmode=require)
-      - key: TELEGRAM_BOT_TOKEN
         sync: false
-      - key: TELEGRAM_WEBAPP_URL
+      - key: SESSION_SECRET
         sync: false
       - key: FACEIT_API_KEY
         sync: false
@@ -62,9 +40,59 @@ services:
         sync: false
       - key: FACEIT_WEBHOOK_SECRET
         sync: false
+      - key: CS2_GSI_TOKEN
+        sync: false
       - key: GROQ_API_KEY
         sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_WEBHOOK_SECRET
+        sync: false
+      - key: TELEGRAM_WEBHOOK_URL
+        sync: false
 
-# UptimeRobot (spec §69): add an HTTPS monitor against
-# https://cs2coach-api.onrender.com/health every 5 min so the free API
-# stays warm and doesn't sleep after 15 min of inactivity.
+  - type: web
+    name: cs2coach-bot
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: npm ci --include=dev && npm run build --workspace=@cs2coach/bot
+    startCommand: npm run start --workspace=@cs2coach/bot
+    healthCheckPath: /health
+    buildFilter:
+      paths:
+        - bot/**
+        - packages/**
+        - package.json
+        - package-lock.json
+        - tsconfig.json
+        - render.yaml
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_WEBHOOK_SECRET
+        sync: false
+      - key: TELEGRAM_WEBHOOK_URL
+        sync: false
+      - key: TELEGRAM_WEBAPP_URL
+        value: https://jascoji123.github.io/cs2coach/?v=20260913
+      - key: DATABASE_URL
+        sync: false
+      - key: SESSION_SECRET
+        sync: false
+      - key: FACEIT_API_KEY
+        sync: false
+      - key: FACEIT_CLIENT_ID
+        sync: false
+      - key: FACEIT_CLIENT_SECRET
+        sync: false
+      - key: FACEIT_REDIRECT_URI
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_MODEL
+        value: openai/gpt-oss-120b
