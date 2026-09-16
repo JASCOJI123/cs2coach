@@ -24,6 +24,8 @@ services:
         value: 10000
       - key: ALLOWED_ORIGINS
         value: https://jascoji123.github.io
+      - key: TELEGRAM_WEBAPP_URL
+        value: https://jascoji123.github.io/cs2coach/v2/
       - key: GROQ_MODEL
         value: openai/gpt-oss-120b
       - key: DATABASE_URL
@@ -79,7 +81,7 @@ services:
       - key: TELEGRAM_WEBHOOK_URL
         sync: false
       - key: TELEGRAM_WEBAPP_URL
-        value: https://jascoji123.github.io/cs2coach/?v=20260913
+        value: https://jascoji123.github.io/cs2coach/v2/
       - key: DATABASE_URL
         sync: false
       - key: SESSION_SECRET
