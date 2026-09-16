@@ -8,16 +8,18 @@ import { join } from 'node:path';
 import type { Sql } from 'postgres';
 
 /**
- * tsc does not copy .sql files into dist/, so resolve the migrations directory
- * against the current module location (dev: src/, prod after a copy step), then
- * fall back to the repo-root source path, which always exists on Render.
+ * tsc does not copy .sql files into dist/. In production, the compiled module
+ * lives in packages/database/dist, while SQL migrations remain in src/migrations.
+ * Resolve from the module location first, then from the repository root.
  */
 function resolveMigrationsDir(): string {
   const override = process.env.MIGRATIONS_DIR;
   if (override) return override;
   const candidates = [
     join(__dirname, 'migrations'),
+    join(__dirname, '..', 'src', 'migrations'),
     join(process.cwd(), 'packages', 'database', 'src', 'migrations'),
+    join(process.cwd(), '..', '..', 'packages', 'database', 'src', 'migrations'),
   ];
   for (const candidate of candidates) {
     if (existsSync(join(candidate, '001_init.sql'))) return candidate;
