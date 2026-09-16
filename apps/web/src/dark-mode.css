@@ -1,9 +1,87 @@
-/* Dark mode foundation */
-:root { color-scheme: light; }
-html.dark { color-scheme: dark; }
+/* CS2 Coach theme switch */
+:root { color-scheme: dark; }
+html.light { color-scheme: light; }
+
+html.light {
+  --bg: #f3f6fa;
+  --panel: #ffffff;
+  --panel2: #eef2f6;
+  --line: #d9e0e7;
+  --text: #17202a;
+  --muted: #647381;
+  --shadow: 0 18px 50px rgba(25, 38, 52, .12);
+}
+
 html.dark body { background: #0b0d12; color: #f4f6fb; }
 html.dark button, html.dark input, html.dark textarea, html.dark select { color: inherit; background: #151923; border-color: #2a3040; }
-html.dark .dark-mode-toggle { background: #151923; color: #f4f6fb; border: 1px solid #2a3040; }
-.dark-mode-toggle { position: relative; z-index: 10; display: inline-flex; align-items: center; gap: 8px; border-radius: 999px; padding: 8px 12px; cursor: pointer; transition: background .25s ease, color .25s ease, transform .2s ease; }
-.dark-mode-toggle:hover { transform: translateY(-1px); }
-.dark-mode-toggle .icon { font-size: 16px; line-height: 1; }
+
+html.light body {
+  background: radial-gradient(circle at 50% -10%, rgba(255,122,0,.10), transparent 34%), var(--bg);
+}
+html.light .card,
+html.light .section-block,
+html.light .player-card,
+html.light .elo-card,
+html.light .idle-card {
+  background: linear-gradient(145deg, #ffffff, #f5f7fa);
+}
+html.light .hero-card,
+html.light .analysis-hero {
+  background: radial-gradient(circle at 78% 38%, rgba(255,122,0,.12), transparent 26%), linear-gradient(145deg, #ffffff, #eef2f5);
+}
+html.light .live-command,
+html.light .tactical-hud { background: linear-gradient(145deg, #ffffff, #eef2f5); }
+html.light .row-btn,
+html.light .call-block,
+html.light .inst-list li,
+html.light .score-item,
+html.light .analysis-row { background: #f0f3f6; border-color: #dbe2e8; }
+html.light .quick-grid button,
+html.light .back,
+html.light .secondary,
+html.light .logout-btn { background: #ffffff; }
+html.light .bottom-nav { background: rgba(255,255,255,.90); border-top-color: #d9e0e7; }
+html.light .map-badge,
+html.light .pill { background: #eef2f5; border-color: #d7dfe6; }
+html.light .brand-mark,
+html.light .brand-loader-mark { background: linear-gradient(145deg, #fff4e8, #ffffff); }
+html.light .level-ring { background: radial-gradient(circle, rgba(255,122,0,.12), #ffffff 62%); }
+
+.dark-mode-toggle {
+  position: fixed;
+  z-index: 100;
+  top: max(12px, env(safe-area-inset-top));
+  right: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 36px;
+  border-radius: 999px;
+  padding: 7px 11px;
+  cursor: pointer;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .10em;
+  border: 1px solid rgba(255,122,0,.35);
+  background: rgba(16,24,31,.82);
+  color: #f4f6f8;
+  box-shadow: 0 8px 24px rgba(0,0,0,.18);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  transition: background .25s ease, color .25s ease, border-color .25s ease, transform .2s ease, box-shadow .25s ease;
+}
+html.light .dark-mode-toggle {
+  background: rgba(255,255,255,.88);
+  color: #17202a;
+  border-color: #d7dfe6;
+  box-shadow: 0 8px 24px rgba(25,38,52,.12);
+}
+.dark-mode-toggle:hover { transform: translateY(-1px) scale(1.02); }
+.dark-mode-toggle:active { transform: scale(.97); }
+.dark-mode-toggle .icon { font-size: 15px; line-height: 1; }
+
+html, body, #root,
+.card, .section-block, .player-card, .elo-card, .idle-card,
+.live-command, .tactical-hud, .bottom-nav, .row-btn, .quick-grid button {
+  transition: background-color .25s ease, background .25s ease, color .25s ease, border-color .25s ease, box-shadow .25s ease;
+}
