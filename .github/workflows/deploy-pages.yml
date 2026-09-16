@@ -38,7 +38,7 @@ jobs:
       - name: Build Mini App
         run: npm run build:web
         env:
-          VITE_API_URL: https://cs2coach-api.onrender.com
+          VITE_API_URL: https://cs2coach-api-7ndh.onrender.com
 
       # Keep the normal URL and publish the same build under a versioned path.
       # Telegram clients can cache the Mini App entry URL aggressively, so the
