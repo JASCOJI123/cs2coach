@@ -15,6 +15,8 @@ export function toggleDarkMode(): void {
 
 export function applyTheme(theme: 'light' | 'dark'): void {
   document.documentElement.classList.toggle('dark', theme === 'dark');
+  document.documentElement.classList.toggle('light', theme === 'light');
   document.documentElement.dataset.theme = theme;
   window.localStorage.setItem(STORAGE_KEY, theme);
+  window.dispatchEvent(new Event('cs2coach-theme-change'));
 }
