@@ -6,28 +6,14 @@ import { AppError, codes } from '@cs2coach/shared';
 import { isSupportedEvent, normalizeMatchPayload, verifyWebhookSignature, webhookToGameEvents } from '@cs2coach/faceit';
 import type { AppConfig } from '../config';
 
-function safeDbError(error: unknown): string {
-  const message = error instanceof Error ? error.message : String(error);
-  return message
-    .replace(/postgres(?:ql)?:\/\/[^\s]+/gi, 'postgres://[redacted]')
-    .replace(/password[=:][^\s,}]+/gi, 'password=[redacted]')
-    .slice(0, 300);
-}
-
 export async function healthRoutes(app: FastifyInstance, config: AppConfig): Promise<void> {
+  // health checks
   app.get('/health', async (_request, reply) => {
-    return reply.send({ ok: true, data: { status: 'ok', uptime: 0 } });
+    return reply.send({ ok: true, data: { status: 'ok', uptime: Math.round(process.uptime()) } });
   });
   app.get('/api/health', async (_request, reply) => {
-    let dbOk = false;
-    let dbError: string | undefined;
-    try {
-      await config.db`select true as ok`;
-      dbOk = true;
-    } catch (error) {
-      dbError = safeDbError(error);
-    }
-    return reply.send({ ok: true, data: { dbOk, dbError, uptime: 0 } });
+    const dbOk = await config.pingDb().catch(() => false);
+    return reply.send({ ok: true, data: { dbOk, uptime: Math.round(process.uptime()) } });
   });
 
   // POST /api/webhook/faceit — FACEIT webhook receiver
@@ -43,6 +29,7 @@ export async function healthRoutes(app: FastifyInstance, config: AppConfig): Pro
       return reply.send({ ok: true, data: { ignored: true, reason: `unsupported event: ${eventType}` } });
     }
 
+    // Verify signature when a secret is configured
     if (config.env.faceitWebhookSecret) {
       const signature = String(request.headers['x-hub-signature-256'] ?? '');
       const body = JSON.stringify(payload);
