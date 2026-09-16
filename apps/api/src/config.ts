@@ -50,10 +50,21 @@ export interface AppConfigOptions {
 
 let singleton: AppConfig | null = null;
 
-function canonicalFaceitRedirectUri(configured?: string, webappUrl?: string): string {
-  const fallback = `${webappUrl ?? 'http://localhost:5173'}/faceit/callback`;
+function canonicalFaceitRedirectUri(configured?: string): string {
+  const fallback = 'https://cs2coach-api-7ndh.onrender.com/api/auth/faceit/callback';
   const value = configured?.trim() || fallback;
-  return value.replace('cs2-coach-api.onrender.com', 'cs2coach-api.onrender.com');
+  try {
+    const url = new URL(value);
+    // A previous deployment incorrectly used the Mini App as the OAuth
+    // callback. FACEIT must return to the API callback, which then hands the
+    // authenticated session back to the Mini App.
+    if (url.hostname.endsWith('github.io') || url.pathname.endsWith('/faceit/callback')) {
+      return fallback;
+    }
+    return url.toString();
+  } catch {
+    return fallback;
+  }
 }
 
 export function createAppConfig(source?: EnvSource, options: AppConfigOptions = {}): AppConfig {
@@ -73,7 +84,7 @@ export function createAppConfig(source?: EnvSource, options: AppConfigOptions = 
   const faceitClient = new FaceitApiClient({ apiKey: env.faceitApiKey ?? '', baseUrl: env.faceitDataBaseUrl, logger });
   const oauthConfig: OAuthConfig = {
     clientId: env.faceitClientId ?? '', clientSecret: env.faceitClientSecret ?? '',
-    redirectUri: canonicalFaceitRedirectUri(env.faceitRedirectUri, env.telegramWebappUrl),
+    redirectUri: canonicalFaceitRedirectUri(env.faceitRedirectUri),
     authBaseUrl: env.faceitAuthBaseUrl, authorizeBaseUrl: env.faceitAuthorizeBaseUrl,
   };
   const faceitOAuth = {
