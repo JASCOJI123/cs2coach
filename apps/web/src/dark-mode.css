@@ -1,0 +1,9 @@
+/* Dark mode foundation */
+:root { color-scheme: light; }
+html.dark { color-scheme: dark; }
+html.dark body { background: #0b0d12; color: #f4f6fb; }
+html.dark button, html.dark input, html.dark textarea, html.dark select { color: inherit; background: #151923; border-color: #2a3040; }
+html.dark .dark-mode-toggle { background: #151923; color: #f4f6fb; border: 1px solid #2a3040; }
+.dark-mode-toggle { position: relative; z-index: 10; display: inline-flex; align-items: center; gap: 8px; border-radius: 999px; padding: 8px 12px; cursor: pointer; transition: background .25s ease, color .25s ease, transform .2s ease; }
+.dark-mode-toggle:hover { transform: translateY(-1px); }
+.dark-mode-toggle .icon { font-size: 16px; line-height: 1; }
