@@ -1,6 +1,3 @@
-# Render Blueprint for CS2 Coach monorepo
-# Secrets are intentionally not committed. Add them in Render Dashboard when prompted.
-
 services:
   - type: web
     name: cs2coach-api
