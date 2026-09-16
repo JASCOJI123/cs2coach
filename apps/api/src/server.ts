@@ -24,14 +24,15 @@ export interface BuildServerOptions {
 
 export async function buildServer(config:AppConfig=createAppConfig(), options:BuildServerOptions={}):Promise<FastifyInstance>{
   const logger=config.logger,app=Fastify({logger:false,trustProxy:true}),origins=config.env.allowedOrigins;
+  const isAllowedOrigin=(origin:string|undefined)=>!origin||origin==='null'||origin==='https://web.telegram.org'||origins.length===0||origins.includes(origin);
   if (options.enableMiddlewarePlugins !== false) {
-    await app.register(cors,{origin(origin,cb){if(!origin||origins.length===0||origins.includes(origin)){cb(null,true);return}cb(new AppError('CORS',`Origin not allowed: ${origin}`,403),false)},credentials:true});
+    await app.register(cors,{origin(origin,cb){if(isAllowedOrigin(origin)){cb(null,true);return}cb(new AppError('CORS',`Origin not allowed: ${origin}`,403),false)},credentials:true});
     await app.register(rateLimit,{max:1000,timeWindow:'1 minute'});
   } else {
     // Workers handle CORS at the fetch boundary; keep Fastify free of Node-centric plugins.
     app.addHook('onSend',async(request,reply)=>{
       const origin=String(request.headers.origin ?? '');
-      if (!origin || origins.length===0 || origins.includes(origin)) {
+      if (isAllowedOrigin(origin || undefined)) {
         if (origin) reply.header('access-control-allow-origin',origin);
         reply.header('access-control-allow-credentials','true');
         reply.header('access-control-allow-headers','Content-Type, Authorization, X-Telegram-Init-Data');
