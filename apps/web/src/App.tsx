@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import Splash from './pages/Splash';
 import Home from './pages/Home';
 import Matches from './pages/Matches';
@@ -34,7 +34,7 @@ export default function App() {
   useEffect(() => { const onHash = () => setHash(window.location.hash); window.addEventListener('hashchange', onHash); return () => window.removeEventListener('hashchange', onHash); }, []);
   const current = useMemo(() => parseHash(), [hash]);
 
-  let content: JSX.Element;
+  let content: ReactNode;
   if (current.route !== 'splash' && current.route !== 'faceit-callback' && !hasAuthToken()) {
     content = <Splash />;
   } else {
