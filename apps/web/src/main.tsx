@@ -2,8 +2,10 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { getTelegramWebApp, initTelegram } from './lib/telegram';
 import App from './App';
+import ThemeToggle from './components/ThemeToggle';
 import { I18nProvider } from './lib/i18n';
 import './styles.css';
+import './dark-mode';
 
 initTelegram();
 
@@ -19,6 +21,9 @@ if (handoff && !window.location.hash.includes('faceit-callback')) {
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <I18nProvider><App /></I18nProvider>
+    <I18nProvider>
+      <App />
+      <ThemeToggle />
+    </I18nProvider>
   </React.StrictMode>
 );
