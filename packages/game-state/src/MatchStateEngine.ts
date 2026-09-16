@@ -1,0 +1,14 @@
+import type { GameEvent, MatchState, MatchPlayer } from '@cs2coach/shared';
+import { emptyMatchState } from '@cs2coach/shared';
+export interface MatchStateEngineOptions { learn?: (state:MatchState,event:GameEvent)=>void; onStateChange?: (matchId:string,state:MatchState)=>void; }
+export class MatchStateEngine {
+  private states=new Map<string,MatchState>();
+  constructor(private options:MatchStateEngineOptions={}){}
+  has(id:string){return this.states.has(id)}
+  getState(id:string){return this.states.get(id)??emptyMatchState(id)}
+  applyEvent(e:GameEvent){return this.applyEvents([e])}
+  applyEvents(events:GameEvent[]){let state=events.length?this.getState(events[0].matchId):emptyMatchState('unknown');for(const e of events){state=this.reduce(state,e);this.options.learn?.(state,e);this.states.set(state.matchId,state);this.options.onStateChange?.(state.matchId,state)}return state}
+  clear(id:string){this.states.delete(id)}
+  private reduce(current:MatchState,e:GameEvent):MatchState{const next:MatchState={...current,recentEvents:[...current.recentEvents.slice(-29),e],stateVersion:current.stateVersion+1,timestamp:e.ts};if(e.type==='match_started'){next.phase='live';next.status='ongoing';next.map=e.map??next.map;next.teams=e.teams??next.teams;next.gameDataAvailable=true;next.aiStatus='LIVE'}else if(e.type==='round_started'){next.phase='live';next.round=e.round;next.side=e.side??next.side}else if(e.type==='round_ended'){next.previousRounds=[...current.previousRounds,{round:e.round,winner:e.winner,winReason:e.reason,kills:0,deaths:0,bomb:{planted:current.bomb.planted,site:current.bomb.site,defused:!!current.bomb.defused}}]}else if(e.type==='score_updated'){next.score={a:e.scoreA,b:e.scoreB}}else if(e.type==='match_status_finished'){next.phase='post_match';next.status='finished';next.aiStatus='READY'}else if(e.type==='bomb_state'){next.bomb={planted:e.planted,site:e.site,defused:e.defused}}else if(e.type==='player_state_updated'){const p=e.player;const old=next.players.find(x=>x.faceitPlayerId===p.faceitPlayerId);const player:MatchPlayer={faceitPlayerId:p.faceitPlayerId,nickname:p.nickname,role:old?.role??'RIFLER',team:e.team,alive:e.alive,hp:e.hp??old?.hp??100,kills:e.kills??old?.kills??0,deaths:e.deaths??old?.deaths??0,assists:e.assists??old?.assists??0,weapons:e.weapons??old?.weapons??[]};next.players=old?next.players.map(x=>x.faceitPlayerId===p.faceitPlayerId?player:x):[...next.players,player];next.alivePlayers=next.players.filter(x=>x.alive);if(e.position)next.positions[p.faceitPlayerId]=[...(next.positions[p.faceitPlayerId]??[]),{...e.position,ts:e.ts}].slice(-20);next.gameDataAvailable=true}next.stateHash=this.hash(next);return next}
+  private hash(s:MatchState){return `${s.round}:${s.score.a}:${s.score.b}:${s.bomb.planted?'1':'0'}:${s.players.map(p=>`${p.faceitPlayerId}:${p.alive}:${p.hp}`).sort().join('|')}`}
+}
