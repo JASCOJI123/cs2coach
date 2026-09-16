@@ -1,0 +1,3 @@
+import { emptyMatchState, type GameEvent, type MatchState } from '@cs2coach/shared';
+import type { GameStateProvider } from '../GameStateProvider';
+export class DemoGameStateProvider implements GameStateProvider { readonly sourceName='demo'; private state:MatchState; constructor(private opts:{isDemoMode:boolean;matchId:string},private logger?:unknown){this.state={...emptyMatchState(opts.matchId),demoMode:true,gameDataAvailable:true,aiStatus:'LIVE',phase:'live',status:'ongoing'}} getCurrentState(_id:string){return Promise.resolve(this.state)} subscribeToEvents(_id:string,_h:(e:GameEvent)=>void){return()=>{}} disconnect(){return Promise.resolve()} }
