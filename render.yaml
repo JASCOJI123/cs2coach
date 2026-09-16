@@ -1,0 +1,99 @@
+# Render Blueprint for CS2 Coach monorepo
+# Secrets are intentionally not committed. Add them in Render Dashboard when prompted.
+
+services:
+  - type: web
+    name: cs2coach-api
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: npm install && npm run build --workspace=@cs2coach/api
+    startCommand: npm run start --workspace=@cs2coach/api
+    healthCheckPath: /health
+    buildFilter:
+      paths:
+        - apps/api/**
+        - packages/**
+        - package.json
+        - package-lock.json
+        - tsconfig.json
+        - render.yaml
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: ALLOWED_ORIGINS
+        value: https://jascoji123.github.io
+      - key: GROQ_MODEL
+        value: openai/gpt-oss-120b
+      - key: DATABASE_URL
+        sync: false
+      - key: SESSION_SECRET
+        sync: false
+      - key: FACEIT_API_KEY
+        sync: false
+      - key: FACEIT_CLIENT_ID
+        sync: false
+      - key: FACEIT_CLIENT_SECRET
+        sync: false
+      - key: FACEIT_REDIRECT_URI
+        sync: false
+      - key: FACEIT_WEBHOOK_SECRET
+        sync: false
+      - key: CS2_GSI_TOKEN
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_WEBHOOK_SECRET
+        sync: false
+      - key: TELEGRAM_WEBHOOK_URL
+        sync: false
+
+  - type: web
+    name: cs2coach-bot
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: npm install && npm run build --workspace=@cs2coach/bot
+    startCommand: npm run start --workspace=@cs2coach/bot
+    healthCheckPath: /health
+    buildFilter:
+      paths:
+        - apps/bot/**
+        - packages/**
+        - package.json
+        - package-lock.json
+        - tsconfig.json
+        - render.yaml
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_WEBHOOK_SECRET
+        sync: false
+      - key: TELEGRAM_WEBHOOK_URL
+        sync: false
+      - key: TELEGRAM_WEBAPP_URL
+        value: https://jascoji123.github.io/cs2coach/?v=20260913
+      - key: DATABASE_URL
+        sync: false
+      - key: SESSION_SECRET
+        sync: false
+      - key: FACEIT_API_KEY
+        sync: false
+      - key: FACEIT_CLIENT_ID
+        sync: false
+      - key: FACEIT_CLIENT_SECRET
+        sync: false
+      - key: FACEIT_REDIRECT_URI
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_MODEL
+        value: openai/gpt-oss-120b
