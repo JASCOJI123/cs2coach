@@ -1,0 +1,9 @@
+import type { ActionType, BuyType, Confidence, MatchState, OpponentPattern } from '@cs2coach/shared';
+export type TacticalAction = ActionType;
+export interface ActionCandidate { action: TacticalAction; score: number; }
+export interface OpponentPatternSummary { patternType: string; location?: string; frequency: number; sampleSize: number; confidence: number; }
+export interface TacticalContext { matchId: string; roundNumber: number; side: 'CT'|'T'; economy: { team1:number; team2:number }; buyType: BuyType; score:{team1:number;team2:number}; previousRounds:Array<{roundNumber:number;winner?:'team1'|'team2'}>; opponentPatterns:OpponentPatternSummary[]; map?:string; }
+export function patternToSummary(p: OpponentPattern): OpponentPatternSummary { const confidence=p.confidence==='HIGH'?0.85:p.confidence==='MEDIUM'?0.55:0.25; return {patternType:p.patternType,location:p.location,frequency:p.frequency,sampleSize:p.sampleSize,confidence}; }
+export function classifyBuy(money:number):BuyType { if(money>=4000)return'FULL_BUY'; if(money>=3000)return'HALF_BUY'; if(money>=1800)return'LOW_BUY'; if(money>0)return'ECO'; return'SAVE'; }
+export function contextFromState(state:MatchState,side:'CT'|'T'):TacticalContext { const economy=state.economy?{team1:state.economy.a.money,team2:state.economy.b.money}:{team1:0,team2:0}; return {matchId:state.matchId,roundNumber:state.round,side,economy,buyType:classifyBuy(economy[side==='CT'?'team1':'team2']),score:{team1:state.score.a,team2:state.score.b},previousRounds:state.previousRounds.slice(-8).map(r=>({roundNumber:r.round,winner:r.winner==='CT'?'team1':r.winner==='T'?'team2':undefined})),opponentPatterns:state.opponentPatterns.map(patternToSummary),map:state.map}; }
+export function confidenceLabel(score:number):Confidence{return score>=.7?'HIGH':score>=.4?'MEDIUM':'LOW';}
