@@ -1,5 +1,5 @@
 import { createLogger, type GameEvent, type Logger } from '@cs2coach/shared';
-import { normalizeGsiSnapshot, type GsiSnapshot } from './gsi-normalizer';
+import { normalizeGsiSnapshot, readGsiSnapshot, type GsiSnapshot } from './gsi-normalizer';
 export interface CS2GsiSink { onEvents: (events: GameEvent[]) => void | Promise<void>; }
 export class CS2GameStateProvider {
   readonly realtimeGameData = true;
@@ -13,10 +13,11 @@ export class CS2GameStateProvider {
   async start(): Promise<void> { this.running = true; this.logger.info('cs2_state_provider_started', { available: true }); }
   async stop(): Promise<void> { this.running = false; this.last.clear(); }
   ingest(matchId: string, body: unknown): GameEvent[] {
-    const snapshot = normalizeGsiSnapshot(body) as GsiSnapshot;
     const previous = this.last.get(matchId);
-    const events = previous ? normalizeGsiSnapshot(body, previous) as GameEvent[] : [];
-    this.last.set(matchId, snapshot);
+    const current = readGsiSnapshot(body);
+    this.last.set(matchId, current);
+    if (!previous) return [];
+    const events = normalizeGsiSnapshot(matchId, body, previous) as GameEvent[];
     if (events.length) for (const sink of this.sinks) void sink.onEvents(events);
     return events;
   }
