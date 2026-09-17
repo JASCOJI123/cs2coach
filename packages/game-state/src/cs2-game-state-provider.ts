@@ -1,29 +1,32 @@
 /**
- * CS2GameStateProvider (spec §30): the real-time seam for a future CS2 GSI /
- * custom real-time source. Today no production source is wired, so
- * `available` is always `false` — the API surface accepts normalized events
- * via POST /api/game-state/events from an authorized real source in the
- * future, never from a demo stream.
+ * Real-time CS2 GSI provider. Keeps raw Valve GSI snapshots isolated from the
+ * domain layer and emits only normalized GameEvents. Snapshot edges are
+ * deduplicated so repeated GSI POSTs do not create repeated domain events.
  */
-import { createLogger, type Logger } from '@cs2coach/shared';
+import { createLogger, type GameEvent, type Logger } from '@cs2coach/shared';
+import { normalizeGsiSnapshot, type GsiSnapshot } from './gsi-normalizer';
+
+export interface CS2GsiSink { onEvents: (events: GameEvent[]) => void | Promise<void>; }
 
 export class CS2GameStateProvider {
   readonly realtimeGameData = true;
   private readonly logger: Logger;
+  private readonly sinks = new Set<CS2GsiSink>();
+  private readonly last = new Map<string, GsiSnapshot>();
+  private running = false;
 
-  constructor(logger?: Logger) {
-    this.logger = logger ?? createLogger('cs2-state-provider');
+  constructor(logger?: Logger) { this.logger = logger ?? createLogger('cs2-state-provider'); }
+  get available(): boolean { return this.running; }
+  subscribe(sink: CS2GsiSink): () => void { this.sinks.add(sink); return () => this.sinks.delete(sink); }
+  async start(): Promise<void> { this.running = true; this.logger.info('cs2_state_provider_started', { available: true }); }
+  async stop(): Promise<void> { this.running = false; this.last.clear(); }
+  ingest(matchId: string, body: unknown): GameEvent[] {
+    const snapshot = normalizeGsiSnapshot(body);
+    const previous = this.last.get(matchId);
+    const events = normalizeGsiSnapshot(body, previous);
+    this.last.set(matchId, snapshot);
+    if (events.length) for (const sink of this.sinks) void sink.onEvents(events);
+    return events;
   }
-
-  get available(): boolean {
-    return false;
-  }
-
-  async start(): Promise<void> {
-    this.logger.info('cs2_state_provider_started', { available: false });
-  }
-
-  async stop(): Promise<void> {
-    // no-op — nothing to tear down
-  }
+  clear(matchId: string): void { this.last.delete(matchId); }
 }
