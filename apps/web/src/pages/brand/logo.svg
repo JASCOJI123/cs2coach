@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 220" role="img" aria-labelledby="title desc">
+<title>CS2USTOZ — Powered by JASCOAV</title><desc>CS2USTOZ esports coaching logo with orange tactical crosshair and soldier mark.</desc>
+<defs><linearGradient id="o" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ffb52e"/><stop offset=".45" stop-color="#ff6a00"/><stop offset="1" stop-color="#ff4d00"/></linearGradient></defs>
+<rect width="900" height="220" rx="28" fill="#f5f6f8"/>
+<g transform="translate(24 24)"><rect width="172" height="172" rx="40" fill="#100d0b" stroke="url(#o)" stroke-width="5"/>
+<circle cx="86" cy="86" r="65" fill="none" stroke="#6d330b" stroke-width="2"/><path d="M86 17v138M17 86h138" stroke="#ff6a00" stroke-width="2" opacity=".8"/>
+<path d="M43 111c7-28 15-45 34-48l12 7 9 12 30 0 11 9-47 1-10 18z" fill="#21150d" stroke="#ff8a00" stroke-width="3"/>
+<path d="M76 68c-1-12 7-23 20-24 13 1 20 10 18 23l-10 8H83z" fill="#17100c" stroke="#ff8a00" stroke-width="3"/>
+<path d="M102 85h51l-3 7h-48zM123 78h25l3 7h-28z" fill="#ff9b00"/><path d="M62 100l19-12 14 5-19 14z" fill="#ff6a00" opacity=".8"/>
+<path d="M45 126h83" stroke="#ff6a00" stroke-width="5" stroke-linecap="round"/>
+<text x="86" y="151" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="26" font-weight="900" fill="url(#o)">C</text></g>
+<text x="225" y="106" font-family="Arial,Helvetica,sans-serif" font-size="86" font-weight="900" letter-spacing="-3" fill="#111820">CS2<tspan fill="#ff6500">USTOZ</tspan></text>
+<text x="230" y="153" font-family="Arial,Helvetica,sans-serif" font-size="25" font-weight="600" letter-spacing="8" fill="#7d8791">POWERED BY <tspan fill="#ff6500">JASCOAV</tspan></text>
+</svg>
