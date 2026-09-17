@@ -6,13 +6,52 @@ import type { AppConfig } from '../config';
 
 type GsiBody = Record<string, any>;
 type GsiMemory = { phase?: string; round: number; finished?: boolean };
+type MatchCacheEntry = { detail: FaceitMatchDetail | null; expiresAt: number };
 const gsiMemory = new Map<string, GsiMemory>();
 const lastAiHash = new Map<string, string>();
+const activeMatchCache = new Map<string, MatchCacheEntry>();
+const ACTIVE_MATCH_CACHE_MS = 15_000;
+
 function teamRef(faction: Record<string, any> | undefined): FaceitTeamRef | undefined { if (!faction) return undefined; const roster = Array.isArray(faction.roster) ? faction.roster : Array.isArray(faction.members) ? faction.members : []; return { teamId: typeof faction.team_id === 'string' ? faction.team_id : undefined, name: typeof faction.nickname === 'string' ? faction.nickname : undefined, players: roster.filter((m: any) => typeof m?.player_id === 'string' && typeof m?.nickname === 'string').map((m: any) => ({ faceitPlayerId: m.player_id, nickname: m.nickname, avatar: m.avatar, skillLevel: m.skill_level })) }; }
 function positionOf(player: any): { x: number; y: number; z: number } | undefined { if (typeof player?.position !== 'string') return undefined; const parts = player.position.split(',').map((v: string) => Number(v.trim())); return parts.length === 3 && parts.every(Number.isFinite) ? { x: parts[0]!, y: parts[1]!, z: parts[2]! } : undefined; }
 function weaponNames(player: any): string[] { if (!player?.weapons || typeof player.weapons !== 'object') return []; return Object.values(player.weapons).map((weapon: any) => weapon?.name).filter((v): v is string => typeof v === 'string').slice(0, 16); }
 function currentRound(body: GsiBody): number { const ct = Number(body.map?.team_ct?.score ?? 0); const t = Number(body.map?.team_t?.score ?? 0); return Number.isFinite(ct + t) ? Math.max(1, ct + t + 1) : 1; }
-async function findActiveFaceitMatch(config: AppConfig, userId: string, faceitPlayerId: string, gamePlayerId: string): Promise<FaceitMatchDetail | null> { const dbMatches = await listMatchesForUser(config.db, { userId, limit: 10 }); const active = dbMatches.find((m) => ['scheduled', 'configuring', 'ready', 'ongoing'].includes(String(m.status))); if (active) return config.faceitClient.getMatchById(active.faceitMatchId); const history = await config.faceitClient.getPlayerMatches(faceitPlayerId, { offset: 0, limit: 20 }); const candidate = (history.items ?? []).find((item) => { const status = String(item.status ?? '').toLowerCase(); if (['finished', 'aborted', 'cancelled'].includes(status)) return false; if (item.playing_players?.includes(gamePlayerId)) return true; return Object.values(item.teams ?? {}).some((team: any) => (team.roster ?? team.players ?? team.members ?? []).some((p: any) => p.game_player_id === gamePlayerId)); }); return candidate ? config.faceitClient.getMatchById(candidate.match_id) : null; }
+
+async function findActiveFaceitMatch(config: AppConfig, userId: string, faceitPlayerId: string, gamePlayerId: string): Promise<FaceitMatchDetail | null> {
+  const cached = activeMatchCache.get(gamePlayerId);
+  if (cached && cached.expiresAt > Date.now()) return cached.detail;
+  if (cached) activeMatchCache.delete(gamePlayerId);
+
+  try {
+    const dbMatches = await listMatchesForUser(config.db, { userId, limit: 10 });
+    const ordered = dbMatches.filter((m) => ['ongoing', 'ready', 'configuring', 'scheduled'].includes(String(m.status).toLowerCase()));
+    const active = ordered.find((m) => String(m.status).toLowerCase() === 'ongoing') ?? ordered[0];
+    if (active) {
+      try {
+        const detail = await config.faceitClient.getMatchById(active.faceitMatchId);
+        activeMatchCache.set(gamePlayerId, { detail, expiresAt: Date.now() + ACTIVE_MATCH_CACHE_MS });
+        return detail;
+      } catch (error) {
+        config.logger.warn('gsi_active_match_lookup_failed', { matchId: active.faceitMatchId, error: error instanceof Error ? error.message : String(error) });
+      }
+    }
+
+    const history = await config.faceitClient.getPlayerMatches(faceitPlayerId, { offset: 0, limit: 20 });
+    const candidate = (history.items ?? []).find((item) => {
+      const status = String(item.status ?? '').toLowerCase();
+      if (['finished', 'aborted', 'cancelled'].includes(status)) return false;
+      if (item.playing_players?.includes(gamePlayerId)) return true;
+      return Object.values(item.teams ?? {}).some((team: any) => (team.roster ?? team.players ?? team.members ?? []).some((p: any) => p.game_player_id === gamePlayerId));
+    });
+    const detail = candidate ? await config.faceitClient.getMatchById(candidate.match_id) : null;
+    activeMatchCache.set(gamePlayerId, { detail, expiresAt: Date.now() + ACTIVE_MATCH_CACHE_MS });
+    return detail;
+  } catch (error) {
+    config.logger.warn('gsi_match_resolution_failed', { userId, faceitPlayerId, gamePlayerId, error: error instanceof Error ? error.message : String(error) });
+    activeMatchCache.set(gamePlayerId, { detail: null, expiresAt: Date.now() + 5_000 });
+    return null;
+  }
+}
 
 export async function gameStateGsiRoutes(app: FastifyInstance, config: AppConfig): Promise<void> {
   app.post('/api/game-state/gsi', async (request, reply) => {
@@ -51,7 +90,7 @@ export async function gameStateGsiRoutes(app: FastifyInstance, config: AppConfig
       }
     }
     gsiMemory.set(detail.match_id, { phase, round, finished: body.map?.phase === 'gameover' });
-    if (body.map?.phase === 'gameover') { lastAiHash.delete(detail.match_id); gsiMemory.delete(detail.match_id); }
+    if (body.map?.phase === 'gameover') { lastAiHash.delete(detail.match_id); gsiMemory.delete(detail.match_id); activeMatchCache.delete(steamId); }
     return reply.send({ ok: true, data: { matchId: detail.match_id, state: liveState ?? config.matchStateEngine.getState(detail.match_id), receivedAt: Date.now() } });
   });
 }
