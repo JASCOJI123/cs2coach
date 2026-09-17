@@ -5,6 +5,7 @@ import App from './App';
 import ThemeToggle from './components/ThemeToggle';
 import { I18nProvider } from './lib/i18n';
 import './styles.css';
+import './design-system.css';
 
 initTelegram();
 
