@@ -1,18 +1,2 @@
-import type { MatchStateLite } from '../lib/types';
-
-export function LiveScore({ state }: { state: MatchStateLite }) {
-  const alive = state.alivePlayers;
-  return (
-    <div className="live-score">
-      <div className="scores">
-        <span className="score-a">{state.score.a}</span>
-        <span>—</span>
-        <span className="score-b">{state.score.b}</span>
-      </div>
-      <div className="alive-row muted">
-        {alive.length} alive · {state.phase}
-        {state.map ? ` · ${state.map}` : ''}
-      </div>
-    </div>
-  );
-}
+import type{MatchStateLite}from'../lib/types';import{useI18n}from'../lib/i18n';
+export function LiveScore({state}:{state:MatchStateLite}){const{lang}=useI18n();const alive=state.alivePlayers;const aliveText=lang==='uz'?'tirik':lang==='ru'?'живы':'alive';return <div className="live-score"><div className="scores"><span className="score-a">{state.score.a}</span><span>—</span><span className="score-b">{state.score.b}</span></div><div className="alive-row muted">{alive.length} {aliveText} · {state.phase}{state.map?` · ${state.map}`:''}</div></div>}
