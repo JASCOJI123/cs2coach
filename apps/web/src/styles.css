@@ -725,21 +725,409 @@ p {
   color: var(--orange2);
 }
 
-/* Responsive */
-@media (max-width: 380px) {
+/* Responsive - Mobile Optimized */
+
+/* Tablets and small laptops */
+@media (max-width: 768px) {
   .panel {
-    padding-left: 12px;
-    padding-right: 12px;
+    padding: 16px 14px 100px;
   }
+
+  .hero-card {
+    min-height: 320px;
+  }
+
   .hero-copy h1 {
-    font-size: 34px;
+    font-size: 32px;
   }
+
+  .hero-orbit {
+    width: 140px;
+    height: 140px;
+    font-size: 36px;
+    right: -30px;
+    bottom: 20px;
+  }
+}
+
+/* Mobile devices */
+@media (max-width: 480px) {
+  body {
+    font-size: 14px;
+  }
+
+  .panel {
+    padding: 14px 12px 96px;
+  }
+
+  /* Topbar - prevent text overlap */
+  .brand-topbar,
+  .command-topbar,
+  .topbar {
+    gap: 8px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+
+  .brand-lockup strong {
+    font-size: 16px;
+  }
+
+  .brand-lockup small {
+    font-size: 6px;
+  }
+
+  .topbar h1 {
+    font-size: 15px;
+  }
+
+  /* Connection dot - smaller on mobile */
+  .connection-dot {
+    padding: 5px 7px;
+    font-size: 8px;
+    white-space: nowrap;
+  }
+
+  /* Hero Card */
+  .hero-card {
+    min-height: 280px;
+    border-radius: 16px;
+  }
+
+  .hero-copy {
+    padding: 20px 16px;
+  }
+
+  .hero-copy h1 {
+    font-size: 28px;
+    line-height: 1;
+    margin: 8px 0 12px;
+    word-wrap: break-word;
+  }
+
+  .hero-copy p {
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  .hero-orbit {
+    width: 120px;
+    height: 120px;
+    font-size: 28px;
+    right: -20px;
+    bottom: 15px;
+  }
+
+  /* Cards - better spacing */
+  .card,
+  .section-block,
+  .player-card,
+  .elo-card,
+  .idle-card {
+    border-radius: 14px;
+    margin-bottom: 10px;
+  }
+
+  .card {
+    padding: 14px;
+  }
+
+  /* Player Card - prevent overlap */
+  .player-card {
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .player-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    flex-shrink: 0;
+  }
+
+  .player-info {
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  .player-info h1 {
+    font-size: 16px;
+    margin: 2px 0;
+  }
+
+  .player-info p {
+    font-size: 10px;
+  }
+
   .level-ring {
-    width: 52px;
-    height: 52px;
+    width: 50px;
+    height: 50px;
+    flex-shrink: 0;
   }
+
   .level-ring strong {
-    font-size: 21px;
+    font-size: 20px;
+  }
+
+  .level-ring small {
+    font-size: 6px;
+  }
+
+  /* Buttons */
+  .primary,
+  .secondary {
+    padding: 12px 14px;
+    font-size: 12px;
+    border-radius: 10px;
+  }
+
+  /* Live Command */
+  .live-command {
+    padding: 14px;
+    border-radius: 14px;
+  }
+
+  .live-command-head,
+  .live-command-foot {
+    font-size: 8px;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .live-match-main strong {
+    font-size: 20px;
+  }
+
+  .live-score-home strong {
+    font-size: 26px;
+  }
+
+  /* Elo Card */
+  .elo-card {
+    padding: 14px;
+    flex-direction: column;
+    gap: 12px;
+    text-align: center;
+  }
+
+  .elo-value {
+    font-size: 28px;
+  }
+
+  /* Quick Grid */
+  .quick-grid {
+    gap: 6px;
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .quick-grid button {
+    padding: 10px 6px;
+    min-height: auto;
+  }
+
+  .quick-grid span {
+    font-size: 16px;
+    margin-bottom: 6px;
+  }
+
+  .quick-grid strong {
+    font-size: 9px;
+  }
+
+  .quick-grid small {
+    font-size: 7px;
+    margin-top: 3px;
+  }
+
+  /* Section Block */
+  .section-block {
+    padding: 12px;
+  }
+
+  .section-heading {
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .section-heading h1,
+  .section-heading h2 {
+    font-size: 14px;
+  }
+
+  /* Match List */
+  .row-btn {
+    padding: 10px;
+    gap: 8px;
+    border-radius: 10px;
+  }
+
+  .map-badge {
+    width: 30px;
+    height: 30px;
+    font-size: 11px;
+    border-radius: 7px;
+  }
+
+  .match-map strong {
+    font-size: 11px;
+  }
+
+  .match-map small {
+    font-size: 7px;
+  }
+
+  /* Tactical HUD */
+  .tactical-hud {
+    padding: 12px;
+    border-radius: 14px;
+  }
+
+  .call-block {
+    padding: 10px;
+  }
+
+  .call-detail {
+    font-size: 13px;
+  }
+
+  .inst-list li {
+    padding: 8px;
+    margin-bottom: 6px;
+  }
+
+  .inst-list strong {
+    font-size: 11px;
+  }
+
+  .inst-list p {
+    font-size: 10px;
+  }
+
+  /* Live Score */
+  .live-score {
+    padding: 12px 0 6px;
+  }
+
+  .scores {
+    font-size: 32px;
+    gap: 10px;
+  }
+
+  /* Bottom Navigation */
+  .bottom-nav {
+    padding: 8px 6px calc(8px + env(safe-area-inset-bottom));
+  }
+
+  .bottom-nav button {
+    gap: 3px;
+    font-size: 16px;
+  }
+
+  .bottom-nav button small {
+    font-size: 7px;
+  }
+
+  /* Error Banner */
+  .error-banner {
+    padding: 8px 10px;
+    font-size: 10px;
+  }
+
+  /* Disable hover effects on mobile */
+  .card:hover,
+  .player-card:hover,
+  .elo-card:hover,
+  .hero-card:hover,
+  .live-command:hover {
+    transform: none;
+  }
+
+  button:hover:not(:disabled) {
+    transform: none;
+  }
+}
+
+/* Very small mobile devices */
+@media (max-width: 360px) {
+  .panel {
+    padding: 12px 10px 90px;
+  }
+
+  .brand-lockup strong {
+    font-size: 14px;
+  }
+
+  .hero-copy h1 {
+    font-size: 24px;
+  }
+
+  .hero-orbit {
+    width: 100px;
+    height: 100px;
+    font-size: 24px;
+    right: -15px;
+  }
+
+  .player-avatar {
+    width: 42px;
+    height: 42px;
+  }
+
+  .player-info h1 {
+    font-size: 14px;
+  }
+
+  .level-ring {
+    width: 44px;
+    height: 44px;
+  }
+
+  .level-ring strong {
+    font-size: 18px;
+  }
+
+  .quick-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 5px;
+  }
+
+  .quick-grid button {
+    padding: 8px 4px;
+  }
+
+  .quick-grid span {
+    font-size: 14px;
+  }
+
+  .quick-grid strong {
+    font-size: 8px;
+  }
+
+  .connection-dot {
+    font-size: 7px;
+    padding: 4px 6px;
+  }
+}
+
+/* Landscape mobile */
+@media (max-height: 500px) and (orientation: landscape) {
+  .panel {
+    padding: 10px 12px 80px;
+  }
+
+  .hero-card {
+    min-height: 200px;
+  }
+
+  .hero-copy h1 {
+    font-size: 24px;
+  }
+
+  .hero-orbit {
+    width: 80px;
+    height: 80px;
+    font-size: 20px;
   }
 }
 
@@ -748,5 +1136,26 @@ p {
   :root {
     --shadow: 0 20px 56px rgba(0, 0, 0, 0.45);
     --shadow-lg: 0 26px 66px rgba(0, 0, 0, 0.52);
+  }
+}
+
+/* Prevent text selection on UI elements */
+.brand-mark,
+.brand-lockup,
+.connection-dot,
+.bottom-nav button,
+.pill,
+.eyebrow {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Better touch targets for mobile */
+@media (max-width: 768px) {
+  button,
+  .row-btn,
+  .live-command,
+  .account-link {
+    min-height: 44px;
   }
 }
