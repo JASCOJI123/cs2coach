@@ -11,12 +11,7 @@ import { WebSocketManager } from './ws/websocket-manager';
 import { healthRoutes } from './routes/health'; import { matchesRoutes } from './routes/matches'; import { matchAnalysisRoutes } from './routes/match-analysis'; import { matchStatsRoutes } from './routes/match-stats';
 import { telegramAuthRoutes } from './routes/auth-telegram'; import { faceitAuthRoutes } from './routes/auth-faceit'; import { faceitProfileRoutes } from './routes/faceit-profile'; import { gameStateRoutes } from './routes/game-state'; import { gameStateGsiRoutes } from './routes/game-state-gsi'; import { faceitWebhookRoutes } from './routes/webhooks-faceit'; import { subscriptionRoutes } from './routes/subscription'; import { demoRoutes } from './routes/demo'; import { wsRoutes } from './routes/ws';
 
-export interface BuildServerOptions {
-  enableWebsocket?: boolean;
-  enableAutoSync?: boolean;
-  enableProcessSignals?: boolean;
-  enableMiddlewarePlugins?: boolean;
-}
+export interface BuildServerOptions { enableWebsocket?: boolean; enableAutoSync?: boolean; enableProcessSignals?: boolean; enableMiddlewarePlugins?: boolean; }
 
 export async function buildServer(config:AppConfig=createAppConfig(), options:BuildServerOptions={}):Promise<FastifyInstance>{
   const logger=config.logger,app=Fastify({logger:false,trustProxy:true}),origins=config.env.allowedOrigins;
@@ -32,7 +27,7 @@ export async function buildServer(config:AppConfig=createAppConfig(), options:Bu
   app.get('/',async(_request,reply)=>reply.send({ok:true,service:'cs2coach-api',description:'CS2 AI COACH backend — Telegram Mini App API',version:'0.4.0',endpoints:{health:'/health',apiHealth:'/api/health',telegramAuth:'/api/auth/telegram',faceitAuth:'/api/auth/faceit',faceitProfileRefresh:'/api/auth/faceit/refresh-profile',matches:'/api/matches',matchAnalysis:'/api/matches/:faceitMatchId/analysis',matchStats:'/api/matches/:faceitMatchId/stats',subscription:'/api/subscription',faceitWebhook:'/api/webhooks/faceit',gsi:'/api/game-state/gsi',gameState:'/api/game-state',demo:'/api/demo'},dataPolicy:'No fake data — unavailable state is shown as is'}));
   await healthRoutes(app,config); await telegramAuthRoutes(app,config); await faceitAuthRoutes(app,config); await faceitProfileRoutes(app,config); await faceitWebhookRoutes(app,config); await subscriptionRoutes(app,config); await matchesRoutes(app,config); await matchAnalysisRoutes(app,config); await matchStatsRoutes(app,config); await gameStateRoutes(app,config); await gameStateGsiRoutes(app,config); await demoRoutes(app,config);
   if (options.enableWebsocket !== false) {const wsManager=new WebSocketManager(logger);config.broadcastState=(matchId,state)=>wsManager.broadcastState(matchId,state);config.broadcastDecision=(matchId,decision)=>wsManager.broadcastDecision(matchId,decision);await wsRoutes(app,config,wsManager);}
-  app.setErrorHandler((error,request,reply)=>{const status=isAppError(error)?(error.status??500):(typeof(error as{statusCode?:unknown}).statusCode==='number'?Number((error as{statusCode:number}).statusCode):500);const body=toErrorBody(error);const logLevel=status>=500?'error':status>=400?'warn':'debug';logger[logLevel]('request_error',{path:request.url,status,code:body.code,error:error instanceof Error?error.message:String(error)});reply.status(status).send(body);});
+  app.setErrorHandler((error,request,reply)=>{const status=isAppError(error)?(error.status??500):(typeof(error as{statusCode?:unknown}).statusCode==='number'?Number((error as{statusCode:number}).statusCode):500);const body=toErrorBody(error);const details={path:request.url,status,code:body.code,error:error instanceof Error?error.message:String(error)};if(status>=500)logger.error('request_error',details);else if(status>=400)logger.warn('request_error',details);else logger.debug('request_state',details);reply.status(status).send(body);});
   const stopFaceitAutoSync=options.enableAutoSync === false ? () => undefined : startFaceitAutoSync(config);
   if (options.enableProcessSignals !== false) {const shutdown=async(signal:string)=>{logger.info('shutdown',{signal});stopFaceitAutoSync();config.faceitMatchProvider.stopAll();config.demoProvider?.stop();await app.close();process.exit(0)};process.on('SIGINT',()=>void shutdown('SIGINT')); process.on('SIGTERM',()=>void shutdown('SIGTERM'));}
   return app;
