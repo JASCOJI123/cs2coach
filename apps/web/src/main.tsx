@@ -6,6 +6,7 @@ import ThemeToggle from './components/ThemeToggle';
 import { I18nProvider } from './lib/i18n';
 import './styles.css';
 import './unified-theme.css';
+import './theme-toggle.css';
 import './lib/i18n.css';
 
 initTelegram();
