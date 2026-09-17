@@ -1,0 +1,95 @@
+/* CS2Coach unified visual system: final cascade layer after the legacy base styles. */
+:root{
+  --panel-2:var(--panel2);
+  --accent:var(--orange);
+  --accent-ct:var(--cyan);
+  --accent-green:var(--green);
+  --accent-gold:var(--orange2);
+  --accent-red:var(--red);
+  --accent-soft:rgba(255,122,0,.12);
+  --radius-sm:10px;
+  --radius-md:14px;
+  --radius-lg:18px;
+  --radius-xl:22px;
+  --content-max:560px;
+  --safe-bottom:env(safe-area-inset-bottom,0px);
+}
+
+html:not(.dark){
+  --bg:#f4f6f8;
+  --panel:#ffffff;
+  --panel2:#eef2f5;
+  --line:#dce3e8;
+  --text:#10161c;
+  --muted:#64727e;
+  --orange:#e96900;
+  --orange2:#ff8d24;
+  --green:#159957;
+  --red:#d83b4b;
+  --cyan:#087ea4;
+  --shadow:0 14px 38px rgba(24,38,50,.10);
+  --shadow-lg:0 22px 54px rgba(24,38,50,.14);
+  --accent-soft:rgba(233,105,0,.10);
+}
+
+html,body,#root{width:100%;min-width:0}
+body{min-height:100dvh;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+button,input,textarea,select{font-family:inherit}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.panel{max-width:var(--content-max);padding-left:16px;padding-right:16px}
+
+/* Keep all header controls inside the content flow; the theme control floats in a safe bottom corner. */
+.brand-topbar,.command-topbar,.topbar{min-width:0;align-items:center;gap:8px}
+.brand-topbar>*,.command-topbar>* ,.topbar>*{min-width:0}
+.topbar h1{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+
+/* Physical theme switch */
+.theme-switch{position:fixed;right:max(12px,calc((100vw - var(--content-max))/2 + 12px));bottom:calc(14px + var(--safe-bottom));z-index:1200;width:58px;height:34px;padding:3px;border:1px solid var(--line);border-radius:999px;background:var(--panel);box-shadow:0 10px 28px rgba(0,0,0,.18);cursor:pointer;display:block;transition:box-shadow .2s ease,transform .2s ease}
+.theme-switch:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 14px 32px rgba(0,0,0,.24)}
+.theme-switch:active:not(:disabled){transform:scale(.97)}
+.switch-track{position:absolute;inset:3px;border-radius:999px;background:var(--panel2);border:1px solid var(--line);overflow:hidden}
+.switch-socket{position:absolute;left:6px;top:50%;width:12px;height:12px;margin-top:-6px;border-radius:50%;background:var(--accent);box-shadow:0 0 12px color-mix(in srgb,var(--accent) 55%,transparent);transition:transform .35s cubic-bezier(.2,.9,.25,1.3),background .25s ease}
+.switch-knob{position:absolute;top:4px;left:4px;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:var(--panel);border:1px solid var(--line);color:var(--accent);box-shadow:0 3px 9px rgba(0,0,0,.20);transition:transform .42s cubic-bezier(.2,.9,.25,1.3),color .25s ease}
+.switch-icon{font-size:14px;line-height:1}
+.theme-switch.dark .switch-knob{transform:translateX(24px);color:var(--accent-ct)}
+.theme-switch.dark .switch-socket{transform:translateX(31px);background:var(--accent-ct)}
+
+/* Language control */
+.language-switcher{display:flex;align-items:center;gap:3px;padding:3px;border:1px solid var(--line);border-radius:13px;background:var(--panel);box-shadow:0 4px 14px rgba(0,0,0,.06);flex:none}
+.language-switcher button{min-width:34px;height:30px;border:0;border-radius:9px;background:transparent;color:var(--muted);font-size:10px;font-weight:800;letter-spacing:.04em;padding:5px 7px;cursor:pointer}
+.language-switcher button.selected{background:var(--accent-soft);color:var(--accent)}
+
+/* Shared surfaces */
+.card,.section-block,.player-card,.elo-card,.idle-card,.waiting-card,.empty-match{border-radius:var(--radius-lg)}
+.card:hover,.player-card:hover,.elo-card:hover{border-color:color-mix(in srgb,var(--accent) 30%,var(--line))}
+.primary,.secondary{min-height:46px;border-radius:var(--radius-md)}
+input,textarea,select{border-radius:var(--radius-md)}
+
+/* Light theme: neutralize hard-coded dark surfaces from the old base stylesheet. */
+html:not(.dark) .card,html:not(.dark) .section-block,html:not(.dark) .player-card,html:not(.dark) .elo-card,html:not(.dark) .idle-card,html:not(.dark) .waiting-card,html:not(.dark) .empty-match{background:var(--panel);border-color:var(--line);box-shadow:var(--shadow)}
+html:not(.dark) .hero-card{background:radial-gradient(circle at 78% 38%,rgba(233,105,0,.13),transparent 27%),linear-gradient(145deg,#fff,#eef2f5);border-color:var(--line);box-shadow:var(--shadow-lg)}
+html:not(.dark) .hero-copy p,html:not(.dark) .muted{color:var(--muted)}
+html:not(.dark) .secondary{background:var(--panel2);border-color:var(--line);color:var(--text)}
+html:not(.dark) .player-avatar{background:var(--panel2);border-color:var(--line)}
+html:not(.dark) .level-ring{background:radial-gradient(circle,rgba(233,105,0,.12),#fff 64%)}
+html:not(.dark) .connection-dot{background:var(--panel);color:var(--muted)}
+html:not(.dark) .brand-mark,html:not(.dark) .brand-loader-mark{background:linear-gradient(145deg,#fff2e6,#fff);border-color:rgba(233,105,0,.38)}
+
+/* Responsive stability */
+@media(max-width:560px){
+  .panel{padding-top:14px;padding-bottom:calc(82px + var(--safe-bottom))}
+  .hero-card{min-height:350px}
+  .hero-copy{padding:24px 18px}
+  .hero-copy h1{font-size:clamp(31px,9.8vw,39px)}
+  .hero-orbit{width:150px;height:150px;right:-42px;bottom:20px;font-size:40px}
+}
+@media(max-width:390px){
+  .panel{padding-left:12px;padding-right:12px}
+  .brand-topbar,.command-topbar,.topbar{gap:6px;margin-bottom:14px}
+  .topbar h1{font-size:15px}
+  .language-switcher button{min-width:30px;height:28px;padding:4px 6px;font-size:9px}
+  .theme-switch{right:10px;bottom:calc(10px + var(--safe-bottom))}
+  .card{padding:14px}
+}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
