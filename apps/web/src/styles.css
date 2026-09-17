@@ -85,9 +85,10 @@ button:disabled {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
   margin-bottom: 18px;
   animation: slideDown var(--transition-normal) ease-out;
+  flex-wrap: nowrap;
 }
 
 @keyframes slideDown {
@@ -104,7 +105,9 @@ button:disabled {
 .brand-lockup {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
 }
 
 .brand-lockup strong {
@@ -764,17 +767,32 @@ p {
   .brand-topbar,
   .command-topbar,
   .topbar {
-    gap: 8px;
+    gap: 6px;
     margin-bottom: 14px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    padding: 0 2px;
+  }
+
+  .brand-lockup {
+    gap: 6px;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .brand-mark {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
   }
 
   .brand-lockup strong {
-    font-size: 16px;
+    font-size: 14px;
+    white-space: nowrap;
   }
 
   .brand-lockup small {
-    font-size: 6px;
+    font-size: 5px;
+    letter-spacing: 0.15em;
   }
 
   .topbar h1 {
@@ -783,9 +801,15 @@ p {
 
   /* Connection dot - smaller on mobile */
   .connection-dot {
-    padding: 5px 7px;
-    font-size: 8px;
+    padding: 4px 6px;
+    font-size: 7px;
     white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .connection-dot i {
+    width: 5px;
+    height: 5px;
   }
 
   /* Hero Card */
