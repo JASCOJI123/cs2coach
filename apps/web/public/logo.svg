@@ -1,0 +1,39 @@
+<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background Circle -->
+  <circle cx="100" cy="100" r="95" fill="url(#grad1)" stroke="url(#stroke1)" stroke-width="2"/>
+
+  <!-- CS2 Shield Shape -->
+  <path d="M100 40L140 60V100C140 120 120 135 100 145C80 135 60 120 60 100V60L100 40Z"
+        fill="url(#grad2)" stroke="#FF7A00" stroke-width="2.5" stroke-linejoin="round"/>
+
+  <!-- Coach Tactical Lines -->
+  <path d="M85 75L100 85L115 75M85 95L100 105L115 95M90 115L100 120L110 115"
+        stroke="#FFD700" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>
+
+  <!-- Center Dot (Target) -->
+  <circle cx="100" cy="100" r="8" fill="#FF7A00" stroke="#FFF" stroke-width="2">
+    <animate attributeName="r" values="8;10;8" dur="2s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- Accent Corners -->
+  <path d="M50 50L50 60L60 50Z" fill="#FF9D32" opacity="0.6"/>
+  <path d="M150 50L140 50L150 60Z" fill="#FF9D32" opacity="0.6"/>
+  <path d="M50 150L60 150L50 140Z" fill="#FF9D32" opacity="0.6"/>
+  <path d="M150 150L150 140L140 150Z" fill="#FF9D32" opacity="0.6"/>
+
+  <!-- Gradients -->
+  <defs>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1209;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0a0603;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="stroke1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FF7A00;stop-opacity:0.6" />
+      <stop offset="100%" style="stop-color:#FF9D32;stop-opacity:0.8" />
+    </linearGradient>
+    <linearGradient id="grad2" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" style="stop-color:#2a1608;stop-opacity:0.9" />
+      <stop offset="100%" style="stop-color:#140b04;stop-opacity:0.95" />
+    </linearGradient>
+  </defs>
+</svg>

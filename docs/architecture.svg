@@ -1,0 +1,196 @@
+<svg width="800" height="600" viewBox="0 0 800 600" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="800" height="600" fill="#070A0E"/>
+
+  <!-- Grid Pattern -->
+  <defs>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1A2630" stroke-width="0.5"/>
+    </pattern>
+
+    <!-- Gradient Definitions -->
+    <linearGradient id="orangeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FF7A00;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#FF9D32;stop-opacity:1" />
+    </linearGradient>
+
+    <linearGradient id="blueGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#57D8FF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#38A8E0;stop-opacity:1" />
+    </linearGradient>
+
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect width="800" height="600" fill="url(#grid)" opacity="0.3"/>
+
+  <!-- Title -->
+  <text x="400" y="40" font-family="Inter, sans-serif" font-size="24" font-weight="700" fill="#F3F6F8" text-anchor="middle">
+    CS2 AI Coach Architecture
+  </text>
+
+  <!-- Layer 1: Telegram Mini App -->
+  <rect x="250" y="80" width="300" height="80" rx="12" fill="#12181F" stroke="url(#orangeGrad)" stroke-width="2"/>
+  <text x="400" y="110" font-family="Inter, sans-serif" font-size="16" font-weight="600" fill="#FF9D32" text-anchor="middle">
+    📱 Telegram Mini App
+  </text>
+  <text x="400" y="135" font-family="Inter, sans-serif" font-size="12" fill="#8B98A3" text-anchor="middle">
+    React + TypeScript + Vite
+  </text>
+
+  <!-- Connection Line 1 -->
+  <line x1="400" y1="160" x2="400" y2="190" stroke="#FF7A00" stroke-width="2" stroke-dasharray="5,5">
+    <animate attributeName="stroke-dashoffset" from="10" to="0" dur="1s" repeatCount="indefinite"/>
+  </line>
+  <text x="420" y="180" font-family="Inter, sans-serif" font-size="10" fill="#788693">WebSocket ↕ REST</text>
+
+  <!-- Layer 2: API Server -->
+  <rect x="200" y="190" width="400" height="100" rx="12" fill="#12181F" stroke="url(#blueGrad)" stroke-width="2"/>
+  <text x="400" y="220" font-family="Inter, sans-serif" font-size="16" font-weight="600" fill="#57D8FF" text-anchor="middle">
+    ⚡ Fastify API Server
+  </text>
+
+  <!-- API Components -->
+  <rect x="220" y="235" width="110" height="40" rx="6" fill="#1B232B" stroke="#232C35" stroke-width="1"/>
+  <text x="275" y="255" font-family="Inter, sans-serif" font-size="11" fill="#F3F6F8" text-anchor="middle">🔐 Auth</text>
+  <text x="275" y="268" font-family="Inter, sans-serif" font-size="9" fill="#788693" text-anchor="middle">HMAC + JWT</text>
+
+  <rect x="345" y="235" width="110" height="40" rx="6" fill="#1B232B" stroke="#232C35" stroke-width="1"/>
+  <text x="400" y="255" font-family="Inter, sans-serif" font-size="11" fill="#F3F6F8" text-anchor="middle">🎮 Matches</text>
+  <text x="400" y="268" font-family="Inter, sans-serif" font-size="9" fill="#788693" text-anchor="middle">FACEIT API</text>
+
+  <rect x="470" y="235" width="110" height="40" rx="6" fill="#1B232B" stroke="#232C35" stroke-width="1"/>
+  <text x="525" y="255" font-family="Inter, sans-serif" font-size="11" fill="#F3F6F8" text-anchor="middle">🌐 WebSocket</text>
+  <text x="525" y="268" font-family="Inter, sans-serif" font-size="9" fill="#788693" text-anchor="middle">Real-time</text>
+
+  <!-- Connection Line 2 -->
+  <line x1="400" y1="290" x2="400" y2="320" stroke="#FF7A00" stroke-width="2" stroke-dasharray="5,5">
+    <animate attributeName="stroke-dashoffset" from="10" to="0" dur="1s" repeatCount="indefinite"/>
+  </line>
+
+  <!-- Layer 3: Game State Pipeline -->
+  <rect x="150" y="320" width="500" height="160" rx="12" fill="#12181F" stroke="#FF7A00" stroke-width="2" filter="url(#glow)"/>
+  <text x="400" y="345" font-family="Inter, sans-serif" font-size="16" font-weight="600" fill="#FF9D32" text-anchor="middle">
+    🎯 Game State Pipeline
+  </text>
+
+  <!-- Pipeline Flow -->
+  <!-- FACEIT Input -->
+  <rect x="170" y="360" width="140" height="35" rx="6" fill="#1B232B" stroke="#38E68B" stroke-width="1"/>
+  <text x="240" y="380" font-family="Inter, sans-serif" font-size="10" fill="#F3F6F8" text-anchor="middle">FACEIT Webhook</text>
+  <text x="240" y="392" font-family="Inter, sans-serif" font-size="8" fill="#788693" text-anchor="middle">Game Events</text>
+
+  <line x1="310" y1="377.5" x2="340" y2="377.5" stroke="#FF7A00" stroke-width="2" marker-end="url(#arrowhead)"/>
+
+  <!-- Event Bus -->
+  <rect x="340" y="360" width="120" height="35" rx="6" fill="#1B232B" stroke="#57D8FF" stroke-width="1"/>
+  <text x="400" y="380" font-family="Inter, sans-serif" font-size="10" fill="#F3F6F8" text-anchor="middle">GameEventBus</text>
+
+  <line x1="400" y1="395" x2="400" y2="410" stroke="#FF7A00" stroke-width="2" marker-end="url(#arrowhead)"/>
+
+  <!-- State Engine -->
+  <rect x="320" y="410" width="160" height="35" rx="6" fill="#1B232B" stroke="#FF9D32" stroke-width="1"/>
+  <text x="400" y="430" font-family="Inter, sans-serif" font-size="10" fill="#F3F6F8" text-anchor="middle">MatchStateEngine</text>
+
+  <line x1="400" y1="445" x2="400" y2="460" stroke="#FF7A00" stroke-width="2" marker-end="url(#arrowhead)"/>
+
+  <!-- AI Fork -->
+  <rect x="490" y="360" width="140" height="110" rx="8" fill="#0B1117" stroke="#232C35" stroke-width="1" stroke-dasharray="3,3"/>
+  <text x="560" y="375" font-family="Inter, sans-serif" font-size="9" fill="#788693" text-anchor="middle">Sub-Engines</text>
+
+  <rect x="500" y="382" width="120" height="18" rx="4" fill="#1B232B"/>
+  <text x="560" y="394" font-family="Inter, sans-serif" font-size="8" fill="#8B98A3" text-anchor="middle">Round Engine</text>
+
+  <rect x="500" y="404" width="120" height="18" rx="4" fill="#1B232B"/>
+  <text x="560" y="416" font-family="Inter, sans-serif" font-size="8" fill="#8B98A3" text-anchor="middle">Economy Engine</text>
+
+  <rect x="500" y="426" width="120" height="18" rx="4" fill="#1B232B"/>
+  <text x="560" y="438" font-family="Inter, sans-serif" font-size="8" fill="#8B98A3" text-anchor="middle">Statistics Engine</text>
+
+  <rect x="500" y="448" width="120" height="18" rx="4" fill="#1B232B"/>
+  <text x="560" y="460" font-family="Inter, sans-serif" font-size="8" fill="#8B98A3" text-anchor="middle">Opponent Model</text>
+
+  <line x1="480" y1="427.5" x2="500" y2="427.5" stroke="#788693" stroke-width="1"/>
+
+  <!-- Connection Line 3 -->
+  <line x1="400" y1="480" x2="400" y2="510" stroke="#FF7A00" stroke-width="2" stroke-dasharray="5,5">
+    <animate attributeName="stroke-dashoffset" from="10" to="0" dur="1s" repeatCount="indefinite"/>
+  </line>
+
+  <!-- Layer 4: AI Layer -->
+  <g id="ai-layer">
+    <!-- Groq AI -->
+    <rect x="220" y="510" width="140" height="60" rx="8" fill="#1B232B" stroke="#38E68B" stroke-width="2"/>
+    <text x="290" y="530" font-family="Inter, sans-serif" font-size="12" font-weight="600" fill="#38E68B" text-anchor="middle">
+      🤖 Groq AI
+    </text>
+    <text x="290" y="545" font-family="Inter, sans-serif" font-size="9" fill="#788693" text-anchor="middle">Primary</text>
+    <text x="290" y="558" font-family="Inter, sans-serif" font-size="9" fill="#788693" text-anchor="middle">Ultra-fast Inference</text>
+
+    <!-- OR Divider -->
+    <circle cx="400" cy="540" r="20" fill="#12181F" stroke="#FF7A00" stroke-width="2"/>
+    <text x="400" y="547" font-family="Inter, sans-serif" font-size="12" font-weight="700" fill="#FF9D32" text-anchor="middle">OR</text>
+
+    <!-- Tactical Engine -->
+    <rect x="440" y="510" width="140" height="60" rx="8" fill="#1B232B" stroke="#FF9D32" stroke-width="2"/>
+    <text x="510" y="530" font-family="Inter, sans-serif" font-size="12" font-weight="600" fill="#FF9D32" text-anchor="middle">
+      ⚙️ Rules Engine
+    </text>
+    <text x="510" y="545" font-family="Inter, sans-serif" font-size="9" fill="#788693" text-anchor="middle">Fallback</text>
+    <text x="510" y="558" font-family="Inter, sans-serif" font-size="9" fill="#788693" text-anchor="middle">Deterministic</text>
+  </g>
+
+  <!-- Database -->
+  <rect x="50" y="400" width="110" height="70" rx="8" fill="#12181F" stroke="#57D8FF" stroke-width="2"/>
+  <text x="105" y="425" font-family="Inter, sans-serif" font-size="12" font-weight="600" fill="#57D8FF" text-anchor="middle">
+    🗄️ PostgreSQL
+  </text>
+  <text x="105" y="440" font-family="Inter, sans-serif" font-size="9" fill="#788693" text-anchor="middle">Neon</text>
+  <text x="105" y="453" font-family="Inter, sans-serif" font-size="9" fill="#788693" text-anchor="middle">User + Match Data</text>
+  <text x="105" y="465" font-family="Inter, sans-serif" font-size="8" fill="#788693" text-anchor="middle">AES-256-GCM</text>
+
+  <line x1="160" y1="435" x2="200" y2="435" stroke="#57D8FF" stroke-width="1.5" stroke-dasharray="3,3"/>
+
+  <!-- Telegram Bot -->
+  <rect x="640" y="400" width="110" height="70" rx="8" fill="#12181F" stroke="#57D8FF" stroke-width="2"/>
+  <text x="695" y="425" font-family="Inter, sans-serif" font-size="12" font-weight="600" fill="#57D8FF" text-anchor="middle">
+    🤖 Bot
+  </text>
+  <text x="695" y="440" font-family="Inter, sans-serif" font-size="9" fill="#788693" text-anchor="middle">grammY</text>
+  <text x="695" y="453" font-family="Inter, sans-serif" font-size="9" fill="#788693" text-anchor="middle">Commands</text>
+  <text x="695" y="465" font-family="Inter, sans-serif" font-size="8" fill="#788693" text-anchor="middle">Long Polling</text>
+
+  <line x1="600" y1="435" x2="640" y2="435" stroke="#57D8FF" stroke-width="1.5" stroke-dasharray="3,3"/>
+
+  <!-- Arrow Marker -->
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <polygon points="0 0, 10 3, 0 6" fill="#FF7A00" />
+    </marker>
+  </defs>
+
+  <!-- Legend -->
+  <g id="legend">
+    <rect x="50" y="520" width="140" height="60" rx="6" fill="#0B1117" stroke="#232C35" stroke-width="1"/>
+    <text x="120" y="538" font-family="Inter, sans-serif" font-size="10" font-weight="600" fill="#F3F6F8" text-anchor="middle">
+      Legend
+    </text>
+
+    <line x1="60" y1="548" x2="80" y2="548" stroke="#FF7A00" stroke-width="2"/>
+    <text x="85" y="551" font-family="Inter, sans-serif" font-size="8" fill="#788693">Real-time Data</text>
+
+    <line x1="60" y1="563" x2="80" y2="563" stroke="#57D8FF" stroke-width="2" stroke-dasharray="3,3"/>
+    <text x="85" y="566" font-family="Inter, sans-serif" font-size="8" fill="#788693">Async Connection</text>
+  </g>
+
+  <!-- Watermark -->
+  <text x="400" y="590" font-family="Inter, sans-serif" font-size="10" fill="#3E4B56" text-anchor="middle">
+    CS2 AI Coach © 2026 • Built with ❤️
+  </text>
+</svg>
