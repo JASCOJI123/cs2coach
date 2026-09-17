@@ -7,6 +7,7 @@ import { I18nProvider } from './lib/i18n';
 import './styles.css';
 import './theme-polish.css';
 import './theme-dark-match.css';
+import './unified-theme.css';
 
 initTelegram();
 
