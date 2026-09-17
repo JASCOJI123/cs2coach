@@ -52,8 +52,43 @@ html:not(.dark) .command-center .bottom-nav{width:min(430px,100%);padding:11px 8
 html:not(.dark) .command-center .bottom-nav button{font-size:23px;color:#87939d;gap:6px}.command-center .bottom-nav button small{font-size:9px;color:inherit}.command-center .bottom-nav button.active{color:var(--ui-orange)!important}
 html:not(.dark) .command-center .error-banner{background:#fff2f2;border-color:#ffd4d4;color:#d64c52}
 html:not(.dark) .brand-loader{color:#111820}.brand-loader-mark{background:#171b20!important}
-/* Keep the dark theme usable while the light theme follows the supplied reference. */
-html.dark .command-center .brand-lockup strong{color:#f4f6f8}
-html.dark .command-center .brand-lockup small{color:#7c8b96}
-html.dark .command-center .bottom-nav{background:rgba(6,10,14,.94)}
-@media(max-width:380px){html:not(.dark) .panel{padding-left:12px;padding-right:12px}html:not(.dark) .brand-mark{width:44px;height:44px}.language-switcher{margin-right:66px!important}.language-switcher button{min-width:36px!important}.command-center .player-avatar{width:64px;height:64px}.command-center .level-ring{width:68px;height:68px}.command-center .quick-grid button{padding:13px 10px}.command-center .quick-grid strong{font-size:11px}}
+
+/* Global CS2USTOZ system: every route uses the same light mobile dashboard language. */
+html:not(.dark) .panel:not(.command-center){max-width:430px;background:transparent}
+html:not(.dark) .panel.match .topbar{display:grid;grid-template-columns:40px 1fr auto;align-items:center;gap:10px;margin:0 0 18px;padding:0 2px}
+html:not(.dark) .panel.match .topbar h1{font-size:22px;letter-spacing:-.04em;color:#111820;margin:0}
+html:not(.dark) .panel.match .back,html:not(.dark) .panel:not(.command-center) .back{width:40px;height:40px;border:1px solid #dce2e7;background:#fff;color:#111820;border-radius:13px;box-shadow:0 5px 16px rgba(31,45,58,.05)}
+html:not(.dark) .panel.match .language-switcher{margin-right:0}
+html:not(.dark) .panel.match .card,html:not(.dark) .panel.match .waiting-card,html:not(.dark) .panel.match .tactical-hud,html:not(.dark) .panel.match .empty-match,html:not(.dark) .panel.match .score-item{background:#fff!important;border:1px solid var(--ui-line)!important;color:#111820;box-shadow:0 9px 28px rgba(31,45,58,.075);border-radius:20px}
+html:not(.dark) .panel.match .waiting-card{padding:30px 20px;text-align:center}
+html:not(.dark) .panel.match .muted{color:#7b8893}
+html:not(.dark) .panel.match .live-score{background:#fff;border:1px solid var(--ui-line);border-radius:20px;padding:20px 16px;margin-bottom:12px;box-shadow:0 9px 28px rgba(31,45,58,.075)}
+html:not(.dark) .panel.match .scores{font-size:44px;color:#111820}.panel.match .score-a{color:#71808b}.panel.match .score-b{color:var(--ui-orange)}
+html:not(.dark) .panel.match .alive-row{color:#7b8893}.panel.match .tactical-hud{padding:18px!important}.panel.match .call-block,.panel.match .inst-list li,.panel.match .score-item{background:#f6f8f9!important;border-color:#e1e6ea!important}.panel.match .call-block{border-left-color:var(--ui-orange)}
+html:not(.dark) .panel.match .primary{min-height:50px;border-radius:14px}.panel.match .secondary{background:#fff;border-color:#dce2e7;color:#111820;min-height:48px;border-radius:14px}
+html:not(.dark) .panel.match .bottom-nav{width:min(430px,100%);background:rgba(255,255,255,.96);border-top:1px solid #dce2e7;box-shadow:0 -10px 30px rgba(31,45,58,.08)}
+html:not(.dark) .panel.match .connection-dot{display:none!important}
+html:not(.dark) .stats-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+html:not(.dark) .stat-item{background:#f6f8f9!important;border:1px solid #e1e6ea!important;border-radius:14px!important;padding:13px!important;display:flex;align-items:center;justify-content:space-between;gap:8px}
+html:not(.dark) .stat-item span{font-size:9px;color:#7b8893}.stat-item strong{font-size:17px;color:#111820}
+html:not(.dark) .command-center .exact-stats{background:#fff!important;border:1px solid var(--ui-line)!important}
+html:not(.dark) .command-center .analysis-hero{background:linear-gradient(145deg,#fff,#f4f6f7)!important;border:1px solid var(--ui-line)!important;border-radius:20px!important;box-shadow:0 9px 28px rgba(31,45,58,.075)!important}
+html:not(.dark) .command-center .analysis-big strong{color:#111820}.command-center .analysis-big small{color:#87939d}.command-center .elo-delta{color:var(--ui-orange)!important}
+html:not(.dark) .command-center .card{background:#fff!important;border:1px solid var(--ui-line)!important;border-radius:20px!important;box-shadow:0 9px 28px rgba(31,45,58,.075)!important;color:#111820}
+html:not(.dark) .command-center .card li,html:not(.dark) .command-center .analysis-block p{color:#71808b}
+html:not(.dark) .command-center .analysis-row{background:#f6f8f9!important;border:1px solid #e1e6ea!important;border-radius:14px;padding:12px!important}
+html:not(.dark) .command-center .analysis-row span{color:#7b8893}.command-center .analysis-row b{color:#111820}
+html:not(.dark) .command-center .hero-card{display:block;background:linear-gradient(145deg,#fff,#f4f6f7);border:1px solid var(--ui-line);box-shadow:0 9px 28px rgba(31,45,58,.075)}
+html:not(.dark) .command-center .hero-card .hero-copy h1{color:#111820}.command-center .hero-card .hero-copy p{color:#71808b}
+html:not(.dark) .command-center .hero-orbit{border-color:rgba(255,122,0,.28)}
+html:not(.dark) .command-center .hero-grid{opacity:.18}
+html:not(.dark) .command-center .hero-cta{border-radius:14px}
+html:not(.dark) .command-center .live-command{background:linear-gradient(145deg,#fff,#f4f6f7);color:#111820;border-color:rgba(255,122,0,.45);box-shadow:0 9px 28px rgba(31,45,58,.075)}
+html:not(.dark) .command-center .live-command-foot{border-color:#e1e6ea}.command-center .live-match-main small{color:#87939d}
+html:not(.dark) .empty-state,html:not(.dark) .waiting-card{color:#71808b;border-color:#dce2e7}
+html:not(.dark) .error-banner{background:#fff2f2;border-color:#ffd4d4;color:#d64c52}
+html:not(.dark) .primary{box-shadow:0 8px 24px rgba(255,122,0,.16)}
+
+/* Dark mode keeps the same component geometry and orange identity. */
+html.dark .panel{max-width:430px}.panel.match .topbar h1{letter-spacing:-.03em}
+@media(max-width:380px){html:not(.dark) .panel{padding-left:12px;padding-right:12px}html:not(.dark) .brand-mark{width:44px;height:44px}.language-switcher{margin-right:66px!important}.language-switcher button{min-width:36px!important}.command-center .player-avatar{width:64px;height:64px}.command-center .level-ring{width:68px;height:68px}.command-center .quick-grid button{padding:13px 10px}.command-center .quick-grid strong{font-size:11px}.panel.match .topbar{grid-template-columns:38px 1fr auto}.stats-grid{gap:6px}.stat-item{padding:11px!important}}
