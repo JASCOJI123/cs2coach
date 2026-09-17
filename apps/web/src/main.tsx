@@ -5,9 +5,8 @@ import App from './App';
 import ThemeToggle from './components/ThemeToggle';
 import { I18nProvider } from './lib/i18n';
 import './styles.css';
-import './theme-polish.css';
-import './theme-dark-match.css';
 import './unified-theme.css';
+import './lib/i18n.css';
 
 initTelegram();
 
