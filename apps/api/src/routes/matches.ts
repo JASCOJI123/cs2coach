@@ -4,7 +4,7 @@ import { findFaceitAccountByUserId, getMatchByFaceitId, listMatchesForUser, sync
 import type { AppConfig } from '../config';
 import { requireAuth } from '../middleware/telegram-auth';
 
-const HISTORY_SYNC_TTL_MS = 30_000;
+const HISTORY_SYNC_TTL_MS = 60_000;
 const historySyncAt = new Map<string, number>();
 
 export async function userOwnsMatch(config: AppConfig, userId: string, matchId: string): Promise<boolean> {
@@ -23,23 +23,22 @@ function extractMap(detail: any): string | null {
 
 async function hydrateHistoryMaps(config: AppConfig, items: any[]): Promise<any[]> {
   const result = [...items];
+  const candidates = result.map((item,index)=>({item,index})).filter(({item})=>!item?.details?.map && item?.match_id).slice(0,6);
   let next = 0;
   const worker = async () => {
     while (true) {
-      const index = next++;
-      if (index >= result.length) return;
-      const item = result[index];
-      if (item?.details?.map || !item?.match_id) continue;
+      const job = candidates[next++];
+      if (!job) return;
       try {
-        const detail = await config.faceitClient.getMatchById(item.match_id);
+        const detail = await config.faceitClient.getMatchById(job.item.match_id);
         const map = extractMap(detail);
-        if (map) result[index] = { ...item, details: { ...(item.details ?? {}), map } };
+        if (map) result[job.index] = { ...job.item, details: { ...(job.item.details ?? {}), map } };
       } catch (error) {
-        config.logger.warn('faceit_match_detail_failed', { matchId: item?.match_id, error: error instanceof Error ? error.message : String(error) });
+        config.logger.debug('faceit_match_detail_failed', { matchId: job.item?.match_id, error: error instanceof Error ? error.message : String(error) });
       }
     }
   };
-  await Promise.all(Array.from({ length: Math.min(4, result.length) }, () => worker()));
+  await Promise.all(Array.from({ length: Math.min(2, candidates.length) }, () => worker()));
   return result;
 }
 
@@ -65,10 +64,7 @@ export async function matchesRoutes(app: FastifyInstance, config: AppConfig): Pr
     const dbMatches = await listMatchesForUser(config.db,{userId:user.userId,limit:30});
     const merged = new Map<string,any>();
     for (const m of dbMatches) merged.set(m.faceitMatchId,{id:m.id,faceitMatchId:m.faceitMatchId,map:m.map,status:m.status,score:{a:m.scoreA??0,b:m.scoreB??0},startedAt:m.startedAt,finishedAt:m.finishedAt});
-    for (const m of liveHistory) {
-      const old=merged.get(m.faceitMatchId);
-      merged.set(m.faceitMatchId,old?{...old,map:m.map??old.map,status:m.status??old.status,score:m.score??old.score,startedAt:m.startedAt??old.startedAt,finishedAt:m.finishedAt??old.finishedAt}:m);
-    }
+    for (const m of liveHistory) { const old=merged.get(m.faceitMatchId); merged.set(m.faceitMatchId,old?{...old,map:m.map??old.map,status:m.status??old.status,score:m.score??old.score,startedAt:m.startedAt??old.startedAt,finishedAt:m.finishedAt??old.finishedAt}:m); }
     const result=[...merged.values()].sort((a,b)=>new Date(b.startedAt??0).getTime()-new Date(a.startedAt??0).getTime()).slice(0,30);
     return reply.send({ok:true,data:result});
   });
@@ -76,11 +72,7 @@ export async function matchesRoutes(app: FastifyInstance, config: AppConfig): Pr
   app.get('/api/matches/:faceitMatchId',{preHandler:await requireAuth(config)},async(request,reply)=>{
     const faceitMatchId=(request.params as {faceitMatchId:string}).faceitMatchId; const user=request.authedUser!;
     const match=await getMatchByFaceitId(config.db,faceitMatchId);
-    if(match){
-      if(!(await userOwnsMatch(config,user.userId,match.id))) throw new AppError(codes.notFound,'Match not found',404);
-      const state=config.matchStateEngine.getState(match.faceitMatchId);
-      return reply.send({ok:true,data:{id:match.id,faceitMatchId:match.faceitMatchId,map:match.map??state?.map??null,status:state?.status??match.status,score:{a:state?.score.a??match.scoreA??0,b:state?.score.b??match.scoreB??0},live:state??null}});
-    }
+    if(match){ if(!(await userOwnsMatch(config,user.userId,match.id))) throw new AppError(codes.notFound,'Match not found',404); const state=config.matchStateEngine.getState(match.faceitMatchId); return reply.send({ok:true,data:{id:match.id,faceitMatchId:match.faceitMatchId,map:match.map??state?.map??null,status:state?.status??match.status,score:{a:state?.score.a??match.scoreA??0,b:state?.score.b??match.scoreB??0},live:state??null}}); }
     const account=await findFaceitAccountByUserId(config.db,user.userId); if(!account?.faceitUserId) throw new AppError(codes.notFound,'Match not found',404);
     try{const detail=await config.faceitClient.getMatchById(faceitMatchId);const roster=[...(detail.teams?.faction1?.roster??[]),...(detail.teams?.faction2?.roster??[])];if(!roster.some((p:any)=>p.player_id===account.faceitUserId))throw new Error('match is not owned by current user');return reply.send({ok:true,data:{id:`faceit-${detail.match_id}`,faceitMatchId:detail.match_id,map:extractMap(detail),status:detail.status??'finished',score:{a:detail.results?.score?.faction1??0,b:detail.results?.score?.faction2??0},live:null}});}catch{throw new AppError(codes.notFound,'Match not found',404);}
   });
