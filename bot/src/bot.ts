@@ -4,8 +4,8 @@ import { createLogger, loadEnv, type Logger } from '@cs2coach/shared';
 import { getDb, closeDb, findUserByTelegramId, findFaceitAccountByUserId, listMatchesForUser } from '@cs2coach/database';
 
 const logger: Logger = createLogger('bot');
-const DEFAULT_WEBAPP_URL = 'https://jascoji123.github.io/cs2coach/?v=20260913';
-const DEFAULT_WEBHOOK_URL = 'https://cs2coach-bot.onrender.com/telegram/webhook';
+const DEFAULT_WEBAPP_URL = 'https://jascoji123.github.io/cs2coach/v2/';
+const DEFAULT_WEBHOOK_URL = 'https://cs2coach-bot-1z3b.onrender.com/telegram/webhook';
 
 export async function startBot(): Promise<void> {
   const env = loadEnv(); const token = env.telegramBotToken;
