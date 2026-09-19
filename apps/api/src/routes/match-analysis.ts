@@ -13,7 +13,7 @@ function avg(values: Array<number | null>): number | null { const valid = values
 
 export async function matchAnalysisRoutes(app: FastifyInstance, config: AppConfig): Promise<void> {
   app.get('/api/matches/:faceitMatchId/analysis', { preHandler: await requireAuth(config) }, async (request, reply) => {
-    const faceitMatchId=(request.params as {faceitMatchId:string}).faceitMatchId; const user=request.authedUser!; const account=await findFaceitAccountByUserId(config.db,user.userId); const match=await getMatchByFaceitId(config.db,faceitMatchId);
+    const faceitMatchId=(request.params as {faceitMatchId:string}).faceitMatchId; const user=request.authedUser!; const body=(request.body??{}) as {language?:unknown}; const language=body.language==='ru'||body.language==='en'||body.language==='uz'?body.language:'uz'; const account=await findFaceitAccountByUserId(config.db,user.userId); const match=await getMatchByFaceitId(config.db,faceitMatchId);
     if(!match||!account||!(await userOwnsMatch(config,user.userId,match.id)))throw new AppError(codes.notFound,'Match not found',404);
     const [analysisRows]=await Promise.all([config.db`SELECT post_match_analysis,created_at,updated_at FROM match_analysis WHERE match_id=${match.id} LIMIT 1`]);
     const saved=analysisRows[0] as {postMatchAnalysis?:unknown}|undefined;
@@ -88,6 +88,7 @@ export async function matchAnalysisRoutes(app: FastifyInstance, config: AppConfi
     const rounds=roundRows.map(row=>{const r=row as Record<string,unknown>;return{roundNumber:Number(r.roundNumber),winner:r.winner==null?null:String(r.winner),side:r.side==null?null:String(r.side),winReason:r.winReason==null?null:String(r.winReason),scoreAfterRound:r.scoreAfterRound==null?null:String(r.scoreAfterRound),playerEvents:(parseJson(r.events) as unknown[]|null)??[]};});
     const opponentPatterns=patternRows.map(row=>{const r=row as Record<string,unknown>;return`${String(r.patternType)}${r.location?` at ${String(r.location)}`:''}: frequency ${Number(r.frequency).toFixed(1)}, confidence ${String(r.confidence)}, sample ${Number(r.sampleSize)}`;});
     const result=await new PostMatchAnalysisService(config.groqClient).generate({
+      language,
       map:match.map??null,
       finalScore:{a:Number(match.scoreA??0),b:Number(match.scoreB??0)},
       player:effectivePlayer,
