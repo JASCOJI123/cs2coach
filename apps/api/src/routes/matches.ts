@@ -93,6 +93,7 @@ export async function matchesRoutes(app: FastifyInstance, config: AppConfig): Pr
     const faceitMatchId=(request.params as {faceitMatchId:string}).faceitMatchId; const user=request.authedUser!; const match=await getMatchByFaceitId(config.db,faceitMatchId);
     if(!match||!(await userOwnsMatch(config,user.userId,match.id)))throw new AppError(codes.notFound,'Match not found',404);
     const state=config.matchStateEngine.getState(match.faceitMatchId); if(!state||!state.gameDataAvailable)throw new AppError(codes.waitingForGameData,'Waiting for live game data',202);
-    const decision=await config.aiCoordinator.requestDecision(match.faceitMatchId,state,'A');config.aiCoordinator.processNext();return reply.send({ok:true,data:await decision});
+    const body=(request.body??{}) as {language?:unknown}; const language=body.language==='ru'||body.language==='en'||body.language==='uz'?body.language:'uz';
+    const decision=await config.aiCoordinator.requestDecision(match.faceitMatchId,state,'A',language);config.aiCoordinator.processNext();return reply.send({ok:true,data:await decision});
   });
 }
