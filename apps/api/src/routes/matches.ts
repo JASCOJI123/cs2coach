@@ -16,17 +16,26 @@ export async function userOwnsMatch(config: AppConfig, userId: string, matchId: 
 function matchResult(team:'A'|'B'|null,status:string,scoreA:number,scoreB:number):'WIN'|'LOSE'|null{if(status.toLowerCase()!=='finished'||team===null||scoreA===scoreB)return null;const won=team==='A'?scoreA>scoreB:scoreB>scoreA;return won?'WIN':'LOSE';}
 function playerTeamFromHistory(item:unknown,playerId:string):'A'|'B'|null{if(!item||typeof item!=='object')return null;const teams=(item as{teams?:unknown}).teams;if(!teams||typeof teams!=='object')return null;const factions=Object.values(teams as Record<string,unknown>);for(let i=0;i<factions.length;i+=1){const faction=factions[i];if(!faction||typeof faction!=='object')continue;const members=(faction as{members?:unknown;roster?:unknown}).members??(faction as{roster?:unknown}).roster;if(!Array.isArray(members))continue;if(members.some(member=>typeof member==='object'&&member!==null&&'player_id' in member&&String((member as{player_id?:unknown}).player_id)===playerId))return i===1?'B':'A';}return null;}
 function extractMap(detail: any): string | null {
-  const direct = detail?.details?.map;
-  if (typeof direct === 'string' && direct.trim()) return direct.trim();
-  const voting = detail?.voting?.map;
-  if (typeof voting === 'string' && voting.trim()) return voting.trim();
-  for (const value of [voting?.pick, voting?.name, voting?.selected]) if (typeof value === 'string' && value.trim()) return value.trim();
+  const candidates: unknown[] = [
+    detail?.details?.map,
+    detail?.map,
+    detail?.voting?.map,
+    detail?.voting?.map?.pick,
+    detail?.voting?.map?.name,
+    detail?.voting?.map?.selected,
+    detail?.voting?.pick,
+    detail?.voting?.name,
+    detail?.voting?.selected,
+  ];
+  for (const value of candidates) {
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
   return null;
 }
 
 async function hydrateHistoryMaps(config: AppConfig, items: any[]): Promise<any[]> {
   const result = [...items];
-  const candidates = result.map((item,index)=>({item,index})).filter(({item})=>!item?.details?.map && item?.match_id).slice(0,6);
+  const candidates = result.map((item,index)=>({item,index})).filter(({item})=>!extractMap(item) && item?.match_id);
   let next = 0;
   const worker = async () => {
     while (true) {
@@ -41,7 +50,7 @@ async function hydrateHistoryMaps(config: AppConfig, items: any[]): Promise<any[
       }
     }
   };
-  await Promise.all(Array.from({ length: Math.min(2, candidates.length) }, () => worker()));
+  await Promise.all(Array.from({ length: Math.min(3, candidates.length) }, () => worker()));
   return result;
 }
 
