@@ -2,6 +2,7 @@ import { GroqClient } from './groq-client';
 import { postMatchAnalysisSchema, type PostMatchAnalysis } from './post-match-schema';
 
 export interface PostMatchContext {
+  language?: 'uz' | 'ru' | 'en';
   map: string | null;
   finalScore: { a: number; b: number };
   player: Record<string, number | string | null>;
@@ -19,6 +20,7 @@ export interface PostMatchContext {
 
 const PROMPT = `Return one JSON object matching the schema exactly.
 Analyze THIS match, not a generic CS2 player.
+Write all human-readable analysis fields in the requested language (Uzbek Latin, Russian, or English). Keep numeric fields, day numbers, and schema keys unchanged.
 Use every supplied numeric stat and compare the current match against the player's historical baseline when history exists.
 The overallScore fields are skill ratings from 0-100: aim, positioning, decisionMaking, utility, trading, opening, clutch, teamplay.
 Make each score evidence-based and different when the supplied match data differs. Do not default all skills to 50.
@@ -140,10 +142,11 @@ export class PostMatchAnalysisService {
   async generate(context: PostMatchContext): Promise<{ analysis: PostMatchAnalysis & { source: 'groq' | 'fallback' }; source: 'groq' | 'fallback' }> {
     if (this.groq.available) {
       try {
+        const languageName = context.language === 'ru' ? 'Russian' : context.language === 'en' ? 'English' : 'Uzbek (Latin)';
         const response = await this.groq.chat({
           model: 'openai/gpt-oss-120b',
           messages: [
-            { role: 'system', content: PROMPT },
+            { role: 'system', content: `${PROMPT}\nRequested output language: ${languageName}.` },
             { role: 'user', content: JSON.stringify(context) },
           ],
           temperature: 0.55,
