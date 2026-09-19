@@ -27,6 +27,7 @@ interface PendingRequest {
   state: MatchState;
   userTeamId: 'A' | 'B';
   stateHash: string;
+  language: 'uz' | 'ru' | 'en';
   resolve: (decision: TacticalDecision) => void;
   reject: (err: Error) => void;
 }
@@ -42,7 +43,7 @@ export class AiCoordinator {
   private readonly tacticalEngine: TacticalEngine;
 
   /** Pluggable validator: inject the zod-backed Groq path. */
-  private validator: ((matchId: string, state: MatchState, userTeamId: 'A' | 'B') => Promise<ValidatedTacticalOutput | null>) | null = null;
+  private validator: ((matchId: string, state: MatchState, userTeamId: 'A' | 'B', language: 'uz' | 'ru' | 'en') => Promise<ValidatedTacticalOutput | null>) | null = null;
 
   constructor(opts: AiCoordinatorOptions = {}, logger?: Logger) {
     this.cooldownMs = opts.cooldownMs ?? 12_000;
@@ -51,11 +52,11 @@ export class AiCoordinator {
     this.tacticalEngine = new TacticalEngine();
   }
 
-  setValidator(fn: (matchId: string, state: MatchState, userTeamId: 'A' | 'B') => Promise<ValidatedTacticalOutput | null>): void {
+  setValidator(fn: (matchId: string, state: MatchState, userTeamId: 'A' | 'B', language: 'uz' | 'ru' | 'en') => Promise<ValidatedTacticalOutput | null>): void {
     this.validator = fn;
   }
 
-  async requestDecision(matchId: string, state: MatchState, userTeamId: 'A' | 'B'): Promise<TacticalDecision> {
+  async requestDecision(matchId: string, state: MatchState, userTeamId: 'A' | 'B', language: 'uz' | 'ru' | 'en' = 'uz'): Promise<TacticalDecision> {
     const stateHash = hashMatchState(state);
 
     // Dedup identical state (spec §54)
@@ -76,7 +77,7 @@ export class AiCoordinator {
     }
 
     const decision = await new Promise<TacticalDecision>((resolve, reject) => {
-      this.queue.push({ matchId, state, userTeamId, stateHash, resolve, reject });
+      this.queue.push({ matchId, state, userTeamId, stateHash, language, resolve, reject });
     });
 
     this.lastCall.set(matchId, Date.now());
@@ -97,7 +98,7 @@ export class AiCoordinator {
     try {
       let aiResult: ValidatedTacticalOutput | null = null;
       if (this.validator) {
-        aiResult = await this.validator(request.matchId, request.state, request.userTeamId);
+        aiResult = await this.validator(request.matchId, request.state, request.userTeamId, request.language);
       }
       if (!aiResult) {
         request.resolve(this.fallback(request.state, 'groq_unavailable'));
