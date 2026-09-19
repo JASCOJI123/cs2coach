@@ -112,3 +112,9 @@ html:not(.dark) .back{background:var(--panel);border-color:var(--line)}
 .elo-delta.positive{color:var(--green);background:color-mix(in srgb,var(--green) 10%,var(--panel))}
 .elo-delta.negative{color:var(--red);background:color-mix(in srgb,var(--red) 10%,var(--panel))}
 @media(max-width:390px){.elo-delta{min-width:76px;padding:7px 8px}.elo-delta strong{font-size:14px}.elo-delta small{font-size:8px}}
+
+
+/* Completed match result badges — result is supplied by the API. */
+.result-pill{font-weight:900;letter-spacing:.04em}
+.result-pill.win{color:var(--green);background:color-mix(in srgb,var(--green) 12%,var(--panel2));border-color:color-mix(in srgb,var(--green) 28%,var(--line))}
+.result-pill.lose{color:var(--red);background:color-mix(in srgb,var(--red) 10%,var(--panel2));border-color:color-mix(in srgb,var(--red) 25%,var(--line))}
