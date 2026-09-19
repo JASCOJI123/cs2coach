@@ -2,12 +2,13 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { getTelegramWebApp, initTelegram } from './lib/telegram';
 import App from './App';
-import ThemeToggle from './components/ThemeToggle';
 import { I18nProvider } from './lib/i18n';
 import './styles.css';
 import './design-system.css';
+import { initSystemTheme } from './dark-mode';
 
 initTelegram();
+initSystemTheme();
 
 const telegramStartParam = getTelegramWebApp()?.initDataUnsafe?.start_param ?? '';
 const browserParams = new URLSearchParams(window.location.search);
@@ -23,7 +24,6 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <I18nProvider>
       <App />
-      <ThemeToggle />
     </I18nProvider>
   </React.StrictMode>
 );
