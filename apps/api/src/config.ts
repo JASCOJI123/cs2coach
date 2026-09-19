@@ -109,8 +109,8 @@ export function createAppConfig(source?: EnvSource, options: AppConfigOptions = 
   const aiValidator = groqClient.available ? new TacticalAIValidator(groqClient, logger) : null;
   const aiCoordinator = new AiCoordinator({ cooldownMs: env.groqApiKey ? 12_000 : 0 }, logger);
   if (aiValidator) {
-    aiCoordinator.setValidator(async (_matchId, state, userTeamId) => {
-      try { return await aiValidator.requestTactical({ state, userTeamId }); } catch { return null; }
+    aiCoordinator.setValidator(async (_matchId, state, userTeamId, language) => {
+      try { return await aiValidator.requestTactical({ state, userTeamId, language }); } catch { return null; }
     });
   }
   const sessionSign = (claims: Omit<SessionClaims, 'iat' | 'exp'>) => {
