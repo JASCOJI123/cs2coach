@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { findFaceitAccountByUserId } from '@cs2coach/database';
+import { findFaceitAccountByUserId, recordEloSnapshot } from '@cs2coach/database';
 import type { AppConfig } from '../config';
 import { requireAuth } from '../middleware/telegram-auth';
 
@@ -22,6 +22,7 @@ export async function faceitProfileRoutes(app: FastifyInstance, config: AppConfi
       const cs2 = profile.games?.cs2;
       const skillLevel = cs2?.skill_level ?? null;
       const elo = cs2?.faceit_elo ?? null;
+      if (elo != null) await recordEloSnapshot(config.db, { userId: user.userId, elo });
       await config.db`
         update faceit_accounts
         set faceit_user_id = ${profile.player_id || account.faceitUserId},
