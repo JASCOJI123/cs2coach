@@ -96,3 +96,10 @@ html:not(.dark) .back{background:var(--panel);border-color:var(--line)}
   .card{padding:14px}
 }
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+
+
+/* Static competitive map thumbnails — added without changing existing motion rules. */
+.map-badge{overflow:hidden;padding:0;display:grid;place-items:center;flex:none}
+.map-thumb{display:block;width:100%;height:100%;object-fit:cover;border-radius:inherit}
+.idle-map-image{display:block;width:100%;height:100%;object-fit:cover;border-radius:inherit}
+.idle-radar:has(.idle-map-image){overflow:hidden}
