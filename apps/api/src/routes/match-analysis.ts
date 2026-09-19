@@ -18,6 +18,11 @@ export async function matchAnalysisRoutes(app: FastifyInstance, config: AppConfi
     const [analysisRows]=await Promise.all([config.db`SELECT post_match_analysis,created_at,updated_at FROM match_analysis WHERE match_id=${match.id} LIMIT 1`]);
     const saved=analysisRows[0] as {postMatchAnalysis?:unknown}|undefined;
     if(!saved?.postMatchAnalysis)return reply.send({ok:true,data:null});
+    const savedAnalysis=saved.postMatchAnalysis as {language?:unknown};
+    const requestedLanguage=(request.query as {language?:unknown}).language;
+    if(requestedLanguage==='uz'||requestedLanguage==='ru'||requestedLanguage==='en'){
+      if(savedAnalysis.language!==requestedLanguage)return reply.send({ok:true,data:null});
+    }
     return reply.send({ok:true,data:saved.postMatchAnalysis});
   });
 
@@ -31,8 +36,8 @@ export async function matchAnalysisRoutes(app: FastifyInstance, config: AppConfi
     // allowed through once so they can be upgraded to Groq after deployment.
     const [existingRows]=await Promise.all([config.db`SELECT post_match_analysis FROM match_analysis WHERE match_id=${match.id} LIMIT 1`]);
     const existing=existingRows[0] as {postMatchAnalysis?:unknown}|undefined;
-    const existingAnalysis=existing?.postMatchAnalysis as {source?:unknown}|undefined;
-    if(existingAnalysis && existingAnalysis.source==='groq') {
+    const existingAnalysis=existing?.postMatchAnalysis as {source?:unknown;language?:unknown}|undefined;
+    if(existingAnalysis && existingAnalysis.source==='groq' && existingAnalysis.language===language) {
       return reply.send({ok:true,data:existingAnalysis});
     }
 
@@ -96,7 +101,8 @@ export async function matchAnalysisRoutes(app: FastifyInstance, config: AppConfi
       opponentPatterns,
       history:{sampleSize:history.length,averages,recentFive,previousFive,trend,maps},
     });
-    await config.db.begin(async sql=>{await sql`INSERT INTO match_analysis(match_id,post_match_analysis)VALUES(${match.id},${sql.json(result.analysis)})ON CONFLICT(match_id)DO UPDATE SET post_match_analysis=EXCLUDED.post_match_analysis,updated_at=now()`;await sql`INSERT INTO training_plans(user_id,match_id,plan_json)VALUES(${user.userId},${match.id},${sql.json(result.analysis.trainingPlan)})ON CONFLICT(user_id,match_id)DO UPDATE SET plan_json=EXCLUDED.plan_json`;});
-    return reply.send({ok:true,data:{...result.analysis,source:result.source}});
+    const localizedAnalysis={...result.analysis,language};
+    await config.db.begin(async sql=>{await sql`INSERT INTO match_analysis(match_id,post_match_analysis)VALUES(${match.id},${sql.json(localizedAnalysis)})ON CONFLICT(match_id)DO UPDATE SET post_match_analysis=EXCLUDED.post_match_analysis,updated_at=now()`;await sql`INSERT INTO training_plans(user_id,match_id,plan_json)VALUES(${user.userId},${match.id},${sql.json(localizedAnalysis.trainingPlan)})ON CONFLICT(user_id,match_id)DO UPDATE SET plan_json=EXCLUDED.plan_json`;});
+    return reply.send({ok:true,data:{...localizedAnalysis,source:result.source}});
   });
 }
