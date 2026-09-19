@@ -196,3 +196,69 @@ html:not(.dark) .home-score{color:var(--text)}
   .quick-grid button{padding:9px 6px}
   .quick-grid strong{font-size:9px}
 }
+
+
+/* Match screen polish: clearer hierarchy for live coaching states. */
+html:not(.dark) .match .live-score{
+  padding:20px 16px 14px;
+  background:linear-gradient(180deg,#fff 0%,#f8fafb 100%);
+}
+html:not(.dark) .match .scores{font-size:42px;line-height:1}
+html:not(.dark) .match .alive-row{margin-top:9px}
+html:not(.dark) .match .tactical-hud{
+  margin-top:10px;
+  padding:14px;
+  background:linear-gradient(180deg,#fff 0%,#f7f9fa 100%);
+}
+html:not(.dark) .match .tactical-hud .waiting-card{
+  background:var(--panel);
+  border:1px dashed #cfd9df;
+  min-height:220px;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+}
+html:not(.dark) .match .tactical-hud .waiting-card h2{
+  color:var(--text);
+  font-size:20px;
+  letter-spacing:-.03em;
+  margin:10px 0 6px;
+}
+html:not(.dark) .match .tactical-hud .waiting-card p{
+  max-width:390px;
+  margin:0 auto;
+  line-height:1.55;
+}
+html:not(.dark) .match .hud-foot{
+  padding:10px 2px 0;
+  font-size:10px;
+}
+html:not(.dark) .match > .primary{
+  width:100%;
+  min-height:54px;
+  margin-top:12px !important;
+  border-radius:16px;
+  font-size:14px;
+  font-weight:900;
+  letter-spacing:.01em;
+  box-shadow:0 12px 28px rgba(233,105,0,.18);
+}
+html:not(.dark) .match .error-banner{
+  background:#fff7f7;
+  color:var(--red);
+  border-color:#f0c9ce;
+}
+@media(max-width:560px){
+  .match{padding-top:10px}
+  .match .topbar{margin-bottom:12px}
+  .match .topbar .back{
+    width:48px;
+    height:48px;
+    border-radius:15px;
+    font-size:27px;
+  }
+  .match .topbar h1{font-size:18px}
+  .match .connection-dot{font-size:8px}
+  .match .live-score{margin-bottom:10px}
+  .match .tactical-hud{border-radius:18px}
+}
