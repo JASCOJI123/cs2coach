@@ -13,7 +13,7 @@ function avg(values: Array<number | null>): number | null { const valid = values
 
 export async function matchAnalysisRoutes(app: FastifyInstance, config: AppConfig): Promise<void> {
   app.get('/api/matches/:faceitMatchId/analysis', { preHandler: await requireAuth(config) }, async (request, reply) => {
-    const faceitMatchId=(request.params as {faceitMatchId:string}).faceitMatchId; const user=request.authedUser!; const body=(request.body??{}) as {language?:unknown}; const language=body.language==='ru'||body.language==='en'||body.language==='uz'?body.language:'uz'; const account=await findFaceitAccountByUserId(config.db,user.userId); const match=await getMatchByFaceitId(config.db,faceitMatchId);
+    const faceitMatchId=(request.params as {faceitMatchId:string}).faceitMatchId; const user=request.authedUser!; const account=await findFaceitAccountByUserId(config.db,user.userId); const match=await getMatchByFaceitId(config.db,faceitMatchId);
     if(!match||!account||!(await userOwnsMatch(config,user.userId,match.id)))throw new AppError(codes.notFound,'Match not found',404);
     const [analysisRows]=await Promise.all([config.db`SELECT post_match_analysis,created_at,updated_at FROM match_analysis WHERE match_id=${match.id} LIMIT 1`]);
     const saved=analysisRows[0] as {postMatchAnalysis?:unknown}|undefined;
@@ -22,7 +22,7 @@ export async function matchAnalysisRoutes(app: FastifyInstance, config: AppConfi
   });
 
   app.post('/api/matches/:faceitMatchId/analysis', { preHandler: await requireAuth(config) }, async (request, reply) => {
-    const faceitMatchId=(request.params as {faceitMatchId:string}).faceitMatchId; const user=request.authedUser!; const account=await findFaceitAccountByUserId(config.db,user.userId); const match=await getMatchByFaceitId(config.db,faceitMatchId);
+    const faceitMatchId=(request.params as {faceitMatchId:string}).faceitMatchId; const user=request.authedUser!; const body=(request.body??{}) as {language?:unknown}; const language=body.language==='ru'||body.language==='en'||body.language==='uz'?body.language:'uz'; const account=await findFaceitAccountByUserId(config.db,user.userId); const match=await getMatchByFaceitId(config.db,faceitMatchId);
     if(!match||!account||!(await userOwnsMatch(config,user.userId,match.id)))throw new AppError(codes.notFound,'Match not found',404);
 
     // Post-match analysis is intentionally idempotent. Once a real Groq analysis is
