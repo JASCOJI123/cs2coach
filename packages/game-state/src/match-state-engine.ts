@@ -40,6 +40,10 @@ export class MatchStateEngine {
       case 'player_state_updated': {
         const state = this.ensure(event.matchId, true);
         if (!state) return null;
+        state.gameDataAvailable = true;
+        state.status = 'ongoing';
+        state.phase = 'live';
+        state.aiStatus = 'ANALYZING';
         const player = this.upsertPlayer(state, { faceitPlayerId: event.player.faceitPlayerId, nickname: event.player.nickname, team: event.team });
         player.alive = event.alive;
         if (event.hp !== undefined) player.hp = Math.max(0, Math.min(100, event.hp));
