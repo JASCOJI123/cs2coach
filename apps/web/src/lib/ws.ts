@@ -32,8 +32,6 @@ export function openLiveCoach(matchId: string, token: string, handlers: LiveCoac
 
     const ws = new WebSocket(url);
     socket = ws;
-    handlers.onConnection(true);
-
     ws.onopen = () => {
       retryCount = 0;
       handlers.onConnection(true);
