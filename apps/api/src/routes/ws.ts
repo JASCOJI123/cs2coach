@@ -24,7 +24,7 @@ export async function wsRoutes(app: FastifyInstance, config: AppConfig, wsManage
     if (!account || !match || !owns) { ws.close(4003, 'match not found'); return; }
 
     const clientId = `${claims.sub}-${Date.now().toString(36)}`;
-    wsManager.register(clientId, faceitMatchId, (payload) => { if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(payload)); });
+    wsManager.register(clientId, faceitMatchId, (payload) => { if (ws.readyState === 1) ws.send(JSON.stringify(payload)); });
     const state = config.matchStateEngine.getState(faceitMatchId);
     if (state) ws.send(JSON.stringify({ type: 'match_state', matchId: faceitMatchId, state }));
     ws.on('message', () => wsManager.markAlive(clientId));
