@@ -12,6 +12,9 @@ export async function userOwnsMatch(config: AppConfig, userId: string, matchId: 
   return Boolean(row);
 }
 
+
+function matchResult(team:'A'|'B'|null,status:string,scoreA:number,scoreB:number):'WIN'|'LOSE'|null{if(status.toLowerCase()!=='finished'||team===null||scoreA===scoreB)return null;const won=team==='A'?scoreA>scoreB:scoreB>scoreA;return won?'WIN':'LOSE';}
+function playerTeamFromHistory(item:unknown,playerId:string):'A'|'B'|null{if(!item||typeof item!=='object')return null;const teams=(item as{teams?:unknown}).teams;if(!teams||typeof teams!=='object')return null;const factions=Object.values(teams as Record<string,unknown>);for(let i=0;i<factions.length;i+=1){const faction=factions[i];if(!faction||typeof faction!=='object')continue;const members=(faction as{members?:unknown;roster?:unknown}).members??(faction as{roster?:unknown}).roster;if(!Array.isArray(members))continue;if(members.some(member=>typeof member==='object'&&member!==null&&'player_id' in member&&String((member as{player_id?:unknown}).player_id)===playerId))return i===1?'B':'A';}return null;}
 function extractMap(detail: any): string | null {
   const direct = detail?.details?.map;
   if (typeof direct === 'string' && direct.trim()) return direct.trim();
@@ -54,7 +57,7 @@ export async function matchesRoutes(app: FastifyInstance, config: AppConfig): Pr
         if (player.player_id !== account.faceitUserId) await updateFaceitAccountPlayerId(config.db, user.userId, player.player_id);
         const history = await config.faceitClient.getPlayerMatches(player.player_id, { offset: 0, limit: 20 });
         const items = await hydrateHistoryMaps(config, history.items ?? []);
-        liveHistory = items.map((m: any) => ({ id:`faceit-${m.match_id}`, faceitMatchId:m.match_id, map:extractMap(m), status:m.status??'finished', score:{a:m.results?.score?.faction1??0,b:m.results?.score?.faction2??0}, startedAt:m.started_at?new Date(m.started_at*1000).toISOString():null, finishedAt:m.finished_at?new Date(m.finished_at*1000).toISOString():null }));
+        liveHistory = items.map((m: any) => { const status=String(m.status??'finished'); const scoreA=m.results?.score?.faction1??0; const scoreB=m.results?.score?.faction2??0; const playerTeam=playerTeamFromHistory(m,player.player_id); return { id:`faceit-${m.match_id}`, faceitMatchId:m.match_id, map:extractMap(m), status, score:{a:scoreA,b:scoreB}, startedAt:m.started_at?new Date(m.started_at*1000).toISOString():null, finishedAt:m.finished_at?new Date(m.finished_at*1000).toISOString():null, result:matchResult(playerTeam,status,scoreA,scoreB) }; });
         await syncFaceitPlayerHistory(config.db, { faceitPlayerId:player.player_id, nickname:player.nickname||account.nickname, avatar:player.avatar??account.avatar, country:player.country??account.country, skillLevel:player.games?.cs2?.skill_level??account.skillLevel, elo:player.games?.cs2?.faceit_elo??account.elo, items });
         historySyncAt.set(user.userId, Date.now());
       } catch (error) {
@@ -63,8 +66,8 @@ export async function matchesRoutes(app: FastifyInstance, config: AppConfig): Pr
     }
     const dbMatches = await listMatchesForUser(config.db,{userId:user.userId,limit:30});
     const merged = new Map<string,any>();
-    for (const m of dbMatches) merged.set(m.faceitMatchId,{id:m.id,faceitMatchId:m.faceitMatchId,map:m.map,status:m.status,score:{a:m.scoreA??0,b:m.scoreB??0},startedAt:m.startedAt,finishedAt:m.finishedAt});
-    for (const m of liveHistory) { const old=merged.get(m.faceitMatchId); merged.set(m.faceitMatchId,old?{...old,map:m.map??old.map,status:m.status??old.status,score:m.score??old.score,startedAt:m.startedAt??old.startedAt,finishedAt:m.finishedAt??old.finishedAt}:m); }
+    for (const m of dbMatches) merged.set(m.faceitMatchId,{id:m.id,faceitMatchId:m.faceitMatchId,map:m.map,status:m.status,score:{a:m.scoreA??0,b:m.scoreB??0},startedAt:m.startedAt,finishedAt:m.finishedAt,result:matchResult(m.playerTeam??null,m.status,m.scoreA??0,m.scoreB??0)});
+    for (const m of liveHistory) { const old=merged.get(m.faceitMatchId); merged.set(m.faceitMatchId,old?{...old,map:m.map??old.map,status:m.status??old.status,score:m.score??old.score,startedAt:m.startedAt??old.startedAt,finishedAt:m.finishedAt??old.finishedAt,result:m.result??old.result}:m); }
     const result=[...merged.values()].sort((a,b)=>new Date(b.startedAt??0).getTime()-new Date(a.startedAt??0).getTime()).slice(0,30);
     return reply.send({ok:true,data:result});
   });
