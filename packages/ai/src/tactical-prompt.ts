@@ -13,10 +13,13 @@ const MAX_PATTERNS = 6;
 export interface TacticalPromptInput {
   state: MatchState;
   userTeamId: 'A' | 'B';
+  language?: 'uz' | 'ru' | 'en';
 }
 
 export function buildTacticalPrompt(input: TacticalPromptInput): GroqChatMessage[] {
   const { state, userTeamId } = input;
+  const language = input.language ?? 'uz';
+  const languageName = language === 'ru' ? 'Russian' : language === 'en' ? 'English' : 'Uzbek (Latin)';
 
   const compressed: Record<string, unknown> = {
     map: state.map ?? 'unknown',
@@ -53,7 +56,7 @@ export function buildTacticalPrompt(input: TacticalPromptInput): GroqChatMessage
     timestamp: state.timestamp,
   };
 
-  const systemMessage = `You are a CS2 tactical coach (spec §15). Return ONLY valid JSON with this exact shape:
+  const systemMessage = `You are a CS2 tactical coach (spec §15). Write all human-readable text fields (detail, nickname-independent instructions, analysis, signal labels/details) in ${languageName}. Keep action, confidence, role identifiers, and IDs exactly as required by the schema. Return ONLY valid JSON with this exact shape:
 {
   "recommendation": {
     "action": "<ACTION_TYPE>",
