@@ -14,30 +14,35 @@ const ActionTypes = [
 ] as const;
 
 const RecommendationSchema = z.object({
-  action: z.enum(ActionTypes),
-  detail: z.string().max(300),
-  priority: z.number().min(1).max(5),
-  confidence: z.enum(['HIGH', 'MEDIUM', 'LOW']),
-  expiresAt: z.number().nullable().optional(),
-});
+  action: z.enum(ActionTypes).default('DEFAULT'),
+  detail: z.string().max(300).catch('Tactical recommendation unavailable.'),
+  priority: z.number().min(1).max(5).catch(3),
+  confidence: z.enum(['HIGH', 'MEDIUM', 'LOW']).catch('MEDIUM'),
+  expiresAt: z.number().nullable().optional().default(null),
+}).default({ action: 'DEFAULT', detail: 'Tactical recommendation unavailable.', priority: 3, confidence: 'MEDIUM', expiresAt: null });
 
 const InstructionSchema = z.object({
-  faceitPlayerId: z.string().min(1).max(64),
-  nickname: z.string().min(1).max(80),
-  role: z.string().max(40),
-  instruction: z.string().min(1).max(200),
+  faceitPlayerId: z.string().min(1).max(64).catch('unknown'),
+  nickname: z.string().min(1).max(80).catch('Player'),
+  role: z.string().max(40).catch('RIFLER'),
+  instruction: z.string().min(1).max(200).catch('Play according to the current tactical situation.'),
 });
 
 const SignalSchema = z.object({
-  label: z.string().max(60),
-  detail: z.string().max(200),
+  label: z.string().max(60).catch('signal'),
+  detail: z.string().max(200).catch('unavailable'),
 });
 
 export const TacticalOutputSchema = z.object({
   recommendation: RecommendationSchema,
-  instructions: z.array(InstructionSchema).max(10),
-  analysis: z.string().max(600),
-  signals: z.array(SignalSchema).max(10),
+  instructions: z.array(InstructionSchema).max(10).catch([]),
+  analysis: z.string().max(600).catch('Live tactical analysis is temporarily unavailable.'),
+  signals: z.array(SignalSchema).max(10).catch([]),
+}).catch({
+  recommendation: { action: 'DEFAULT', detail: 'Tactical recommendation unavailable.', priority: 3, confidence: 'MEDIUM', expiresAt: null },
+  instructions: [],
+  analysis: 'Live tactical analysis is temporarily unavailable.',
+  signals: [],
 });
 
 export type ValidatedTacticalOutput = z.infer<typeof TacticalOutputSchema>;
@@ -93,7 +98,7 @@ export class TacticalAIValidator {
     }
     const result = TacticalOutputSchema.safeParse(parsed);
     if (!result.success) {
-      this.logger.warn('schema_validation_failed', { issues: result.error.issues.map((i) => i.message).join('; ') });
+      this.logger.warn('schema_validation_failed', { issues: result.error.issues.map((i) => `${i.path.join('.') || 'root'}: ${i.message}`).join('; ') });
       return { ok: false };
     }
     return { ok: true, output: result.data };
