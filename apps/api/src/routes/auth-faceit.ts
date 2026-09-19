@@ -6,6 +6,7 @@ import {
   relinkFaceitAccount,
   deleteFaceitAccount,
   upsertFaceitAccountByUser,
+  getFaceitEloDelta7d,
 } from '@cs2coach/database';
 import type { AppConfig } from '../config';
 import { requireAuth } from '../middleware/telegram-auth';
@@ -69,7 +70,8 @@ export async function faceitAuthRoutes(app: FastifyInstance, config: AppConfig):
         }
       } catch (err) { config.logger.warn('faceit_profile_hydration_failed', { userId: user.userId, error: err instanceof Error ? err.message : String(err) }); }
     }
-    return reply.send({ ok: true, data: { connected: true, nickname: account.nickname, faceitUserId: account.faceitUserId, avatar: account.avatar, country: account.country, skillLevel: account.skillLevel, elo: account.elo } });
+    const delta7d = account.elo != null ? await getFaceitEloDelta7d(config.db, user.userId, account.elo) : null;
+    return reply.send({ ok: true, data: { connected: true, nickname: account.nickname, faceitUserId: account.faceitUserId, avatar: account.avatar, country: account.country, skillLevel: account.skillLevel, elo: account.elo, delta7d } });
   });
 
   const disconnectHandler = async (request: FastifyRequest, reply: FastifyReply) => { const user = request.authedUser!; await disconnectFaceitWithRetry(config, user.userId); config.logger.info('faceit_account_disconnected', { userId: user.userId }); return reply.send({ ok: true, data: { connected: false } }); };
