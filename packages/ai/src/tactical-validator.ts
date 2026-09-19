@@ -75,7 +75,7 @@ export class TacticalAIValidator {
 
   private async callGroq(messages: GroqChatMessage[]): Promise<{ ok: true; output: ValidatedTacticalOutput } | { ok: false }> {
     try {
-      const res = await this.groq.chat({ model: 'llama-3.3-70b-versatile', messages, temperature: 0.4, json: true });
+      const res = await this.groq.chat({ model: 'openai/gpt-oss-120b', messages, temperature: 0.4, json: true });
       return this.parseJson(res);
     } catch (err) {
       this.logger.warn('groq_call_failed', { error: (err as Error).message });
