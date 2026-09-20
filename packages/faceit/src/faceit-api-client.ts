@@ -1,5 +1,5 @@
 import { AppError, codes, createLogger, sleep, type Logger } from '@cs2coach/shared';
-import type { FaceitCs2Stats, FaceitMatchDetail, FaceitMatchListItem, FaceitPlayerHistory, FaceitPlayerCore, FaceitPlayerSearchResponse, FaceitMatchStats } from './types';
+import type { FaceitCs2Stats, FaceitMatchDetail, FaceitPlayerHistory, FaceitPlayerCore, FaceitPlayerSearchResponse, FaceitMatchStats } from './types';
 export type FetchBody = string | URLSearchParams | null;
 interface CacheEntry { expiresAt: number; value: unknown; }
 class TtlCache { private map = new Map<string, CacheEntry>(); get(key:string):unknown|undefined{const e=this.map.get(key);if(!e)return undefined;if(e.expiresAt<Date.now()){this.map.delete(key);return undefined;}return e.value;} set(key:string,value:unknown,ttlMs:number):void{this.map.set(key,{expiresAt:Date.now()+ttlMs,value});if(this.map.size>500){const k=this.map.keys().next().value as string|undefined;if(k)this.map.delete(k);}} }
