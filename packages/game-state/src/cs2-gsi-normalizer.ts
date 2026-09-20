@@ -37,10 +37,6 @@ export function normalizePosition(value?: string): { x: number; y: number; z: nu
   return { x: parts[0]!, y: parts[1]!, z: parts[2]! };
 }
 
-function teamOfPlayer(p: Cs2GsiSnapshot['player'] | NonNullable<Cs2GsiSnapshot['allplayers']>[string]): 'CT' | 'T' | undefined {
-  return p?.team === 'CT' || p?.team === 'T' ? p.team : undefined;
-}
-
 export function extractWeaponNames(player: Cs2GsiSnapshot['player'] | NonNullable<Cs2GsiSnapshot['allplayers']>[string]): string[] {
   return player?.weapons ? Object.values(player.weapons).map((w) => w.name).filter((v): v is string => Boolean(v)).slice(0, 16) : [];
 }
@@ -88,7 +84,7 @@ export class Cs2GsiEdgeDetector {
     const bombState = snapshot.bomb?.state ?? snapshot.round?.bomb;
     const mapPhase = snapshot.map?.phase;
 
-    if (phase === 'freezetime' && this.previousRound !== currentRound) {
+    if (this.previousRound !== currentRound) {
       events.push({ type: 'round_start', round: currentRound });
     }
     if (phase === 'over' && this.previousRoundPhase !== 'over') {
