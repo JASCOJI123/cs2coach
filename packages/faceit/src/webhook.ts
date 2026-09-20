@@ -1,5 +1,5 @@
 /** FACEIT webhook normalization helpers. */
-import { AppError, codes, type FaceitTeamRef, type GameEvent } from '@cs2coach/shared';
+import { AppError, codes, type GameEvent } from '@cs2coach/shared';
 import type { FaceitMatchEventType, FaceitMember, NormalizedFaceitMatchState } from './types';
 
 const MATCH_STATUS_MAP: Record<string, NormalizedFaceitMatchState['status']> = {
@@ -49,6 +49,3 @@ export function webhookToGameEvents(event: FaceitMatchEventType, state: Normaliz
     case 'match_demo_ready': return [{ type: 'match_demo_ready', ...base }];
   }
 }
-
-type NormalizedTeam = { teamId?: string; name?: string; players: FaceitMember[] };
-function toTeamRef(team: NormalizedTeam | undefined): FaceitTeamRef { return { teamId: team?.teamId, name: team?.name, players: (team?.players ?? []).map((m) => ({ faceitPlayerId: m.player_id, nickname: m.nickname, avatar: m.avatar, skillLevel: m.skill_level })) }; }
