@@ -57,23 +57,25 @@ export class AiCoordinator {
   }
 
   async requestDecision(matchId: string, state: MatchState, userTeamId: 'A' | 'B', language: 'uz' | 'ru' | 'en' = 'uz'): Promise<TacticalDecision> {
-    const stateHash = hashMatchState(state);
+    const stateHash = `${hashMatchState(state)}:${language}`;
 
-    // Dedup identical state (spec §54)
+    // Dedup identical state (spec §54) — scoped per language so switching the
+    // UI language for an unchanged match state still gets a fresh, correctly
+    // translated response instead of silently reusing another language's call.
     if (this.seenHashes.has(stateHash)) {
-      return this.fallback(state, 'duplicate_state_hash');
+      return this.fallback(state, language, 'duplicate_state_hash');
     }
 
     // Rate limit (spec §44)
     const now = Date.now();
     const last = this.lastCall.get(matchId) ?? 0;
     if (now - last < this.cooldownMs) {
-      return this.fallback(state, 'cooldown');
+      return this.fallback(state, language, 'cooldown');
     }
 
     // Queue size limit
     if (this.queue.length >= this.maxQueueSize) {
-      return this.fallback(state, 'queue_full');
+      return this.fallback(state, language, 'queue_full');
     }
 
     const decision = await new Promise<TacticalDecision>((resolve, reject) => {
@@ -101,22 +103,22 @@ export class AiCoordinator {
         aiResult = await this.validator(request.matchId, request.state, request.userTeamId, request.language);
       }
       if (!aiResult) {
-        request.resolve(this.fallback(request.state, 'groq_unavailable'));
+        request.resolve(this.fallback(request.state, request.language, 'groq_unavailable'));
         return;
       }
       this.seenHashes.add(request.stateHash);
       request.resolve(this.toDecision(aiResult, request.state));
     } catch (err) {
       this.logger.warn('ai_process_failed', { matchId: request.matchId, error: (err as Error).message });
-      request.resolve(this.fallback(request.state, 'ai_error'));
+      request.resolve(this.fallback(request.state, request.language, 'ai_error'));
     } finally {
       this.processing = false;
       this.processNext();
     }
   }
 
-  private fallback(state: MatchState, _reason: string): TacticalDecision {
-    return this.tacticalEngine.decide(state);
+  private fallback(state: MatchState, language: 'uz' | 'ru' | 'en', _reason: string): TacticalDecision {
+    return this.tacticalEngine.decide(state, language);
   }
 
   private toDecision(ai: ValidatedTacticalOutput, state: MatchState): TacticalDecision {
