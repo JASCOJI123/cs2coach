@@ -109,6 +109,69 @@ function parseGroqAnalysis(content: string): PostMatchAnalysis {
   return postMatchAnalysisSchema.parse(normalized);
 }
 
+type SkillKey = keyof PostMatchAnalysis['overallScore'];
+type Lang = 'uz' | 'ru' | 'en';
+
+const SKILL_NAMES: Record<Lang, Record<SkillKey, string>> = {
+  en: { aim: 'aim', positioning: 'positioning', decisionMaking: 'decision making', utility: 'utility usage', trading: 'trading kills', opening: 'opening duels', clutch: 'clutch rounds', teamplay: 'teamplay' },
+  uz: { aim: 'nishonga olish', positioning: 'pozitsiyalanish', decisionMaking: 'qaror qabul qilish', utility: 'granata ishlatish', trading: 'trade kill', opening: 'opening duellar', clutch: 'clutch raundlar', teamplay: 'jamoaviy o‘yin' },
+  ru: { aim: 'прицеливание', positioning: 'позиционирование', decisionMaking: 'принятие решений', utility: 'использование утилити', trading: 'трейд-киллы', opening: 'опенинг-дуэли', clutch: 'клатч-раунды', teamplay: 'командная игра' },
+};
+
+const FALLBACK_TEXT: Record<Lang, {
+  bestRoundReason: string;
+  worstRoundReason: string;
+  priorityWeakness: (skill: string) => string;
+  secondaryWeakness: (skill: string) => string;
+  secondaryWeaknessFallback: string;
+  strongestArea: (skill: string) => string;
+  secondaryStrength: (skill: string) => string;
+  secondaryStrengthFallback: string;
+  day1: (skill: string) => string;
+  day2: (skill: string, map: string) => string;
+  day3: (skill: string) => string;
+}> = {
+  en: {
+    bestRoundReason: 'Round win supported by the recorded round result; event detail is limited.',
+    worstRoundReason: 'Round loss supported by the recorded round result; event detail is limited.',
+    priorityWeakness: (s) => `Priority weakness: ${s} based on this match's supplied statistics.`,
+    secondaryWeakness: (s) => `Secondary weakness: ${s}; focus on measurable improvement rather than generic drills.`,
+    secondaryWeaknessFallback: 'Review the rounds with the largest impact on the final score.',
+    strongestArea: (s) => `Strongest area: ${s} according to the supplied match statistics.`,
+    secondaryStrength: (s) => `Secondary strength: ${s}. Preserve this while improving the weakest area.`,
+    secondaryStrengthFallback: 'The available statistics show a positive contribution in the strongest measured area.',
+    day1: (s) => `Improve ${s} using the current match as the baseline.`,
+    day2: (s, m) => `Practice ${s} on ${m}.`,
+    day3: (s) => `Repeat the strongest habit (${s}) while reducing the main weakness.`,
+  },
+  uz: {
+    bestRoundReason: 'Raund yutug‘i yozilgan raund natijasiga asoslangan; batafsil hodisa ma’lumoti cheklangan.',
+    worstRoundReason: 'Raund mag‘lubiyati yozilgan raund natijasiga asoslangan; batafsil hodisa ma’lumoti cheklangan.',
+    priorityWeakness: (s) => `Asosiy zaif tomon: ${s} — shu match statistikasiga asoslangan.`,
+    secondaryWeakness: (s) => `Qo‘shimcha zaif tomon: ${s}; umumiy mashqlar emas, o‘lchanadigan yaxshilanishga e’tibor bering.`,
+    secondaryWeaknessFallback: 'Yakuniy hisobga eng ko‘p ta’sir qilgan raundlarni qayta ko‘rib chiqing.',
+    strongestArea: (s) => `Eng kuchli tomon: ${s} — match statistikasiga ko‘ra.`,
+    secondaryStrength: (s) => `Qo‘shimcha kuchli tomon: ${s}. Eng zaif tomonni yaxshilayotganda buni saqlab qoling.`,
+    secondaryStrengthFallback: 'Mavjud statistika eng kuchli o‘lchangan sohada ijobiy hissa ko‘rsatmoqda.',
+    day1: (s) => `Shu matchni asos qilib, ${s} ko‘nikmasini rivojlantiring.`,
+    day2: (s, m) => `${m} xaritasida ${s} ustida mashq qiling.`,
+    day3: (s) => `Eng kuchli odatni (${s}) takrorlang, asosiy zaif tomonni kamaytiring.`,
+  },
+  ru: {
+    bestRoundReason: 'Победа в раунде подтверждена записанным результатом раунда; детали события ограничены.',
+    worstRoundReason: 'Поражение в раунде подтверждено записанным результатом раунда; детали события ограничены.',
+    priorityWeakness: (s) => `Главная слабость: ${s} — на основе статистики этого матча.`,
+    secondaryWeakness: (s) => `Вторичная слабость: ${s}; сосредоточьтесь на измеримом улучшении, а не на общих упражнениях.`,
+    secondaryWeaknessFallback: 'Пересмотрите раунды, оказавшие наибольшее влияние на итоговый счёт.',
+    strongestArea: (s) => `Сильнейшая сторона: ${s} — согласно статистике матча.`,
+    secondaryStrength: (s) => `Вторичная сильная сторона: ${s}. Сохраняйте её, улучшая самую слабую область.`,
+    secondaryStrengthFallback: 'Доступная статистика показывает положительный вклад в сильнейшей измеренной области.',
+    day1: (s) => `Улучшайте «${s}», используя этот матч как отправную точку.`,
+    day2: (s, m) => `Тренируйте «${s}» на карте ${m}.`,
+    day3: (s) => `Повторяйте сильную привычку (${s}), одновременно снижая основную слабость.`,
+  },
+};
+
 function scoreFromStats(player: PostMatchContext['player']): PostMatchAnalysis['overallScore'] {
   const kills = n(player.kills) ?? 0;
   const deaths = n(player.deaths) ?? 0;
@@ -167,37 +230,43 @@ export class PostMatchAnalysisService {
   }
 
   private fallback(context: PostMatchContext): PostMatchAnalysis {
+    const lang: Lang = context.language ?? 'uz';
+    const text = FALLBACK_TEXT[lang];
+    const names = SKILL_NAMES[lang];
     const wins = context.rounds.filter((r) => r.winner === 'A' || r.winner === 'team_a').length;
     const total = Math.max(context.rounds.length, 1);
     const baseline = Math.max(40, Math.min(70, Math.round(45 + (wins / total) * 25)));
     const score = scoreFromStats(context.player);
-    const entries = Object.entries(score).sort((a, b) => a[1] - b[1]);
-    const weakest = entries.slice(0, 2).map(([key]) => key);
-    const strongest = entries.slice(-2).reverse().map(([key]) => key);
+    const entries = Object.entries(score) as [SkillKey, number][];
+    const sorted = [...entries].sort((a, b) => a[1] - b[1]);
+    const weakest = sorted.slice(0, 2).map(([key]) => key);
+    const strongest = sorted.slice(-2).reverse().map(([key]) => key);
+    const weakestNames = weakest.map((key) => names[key]);
+    const strongestNames = strongest.map((key) => names[key]);
     const best = context.rounds.find((r) => r.winner === 'A' || r.winner === 'team_a');
     const worst = context.rounds.find((r) => r.winner === 'B' || r.winner === 'team_b');
-    const map = context.map ?? 'the played map';
+    const map = context.map ?? (lang === 'uz' ? 'o‘ynalgan xarita' : lang === 'ru' ? 'сыгранной карте' : 'the played map');
 
     return {
       overallScore: {
         ...score,
         decisionMaking: Math.max(score.decisionMaking, baseline),
       },
-      bestRound: best && typeof best.roundNumber === 'number' ? { roundNumber: best.roundNumber, reason: 'Round win supported by the recorded round result; event detail is limited.' } : null,
-      worstRound: worst && typeof worst.roundNumber === 'number' ? { roundNumber: worst.roundNumber, reason: 'Round loss supported by the recorded round result; event detail is limited.' } : null,
+      bestRound: best && typeof best.roundNumber === 'number' ? { roundNumber: best.roundNumber, reason: text.bestRoundReason } : null,
+      worstRound: worst && typeof worst.roundNumber === 'number' ? { roundNumber: worst.roundNumber, reason: text.worstRoundReason } : null,
       topMistakes: [
-        `Priority weakness: ${weakest[0] ?? 'decision making'} based on this match's supplied statistics.`,
-        weakest[1] ? `Secondary weakness: ${weakest[1]}; focus on measurable improvement rather than generic drills.` : 'Review the rounds with the largest impact on the final score.',
+        text.priorityWeakness(weakestNames[0] ?? names.decisionMaking),
+        weakestNames[1] ? text.secondaryWeakness(weakestNames[1]) : text.secondaryWeaknessFallback,
       ],
       topDecisions: [
-        `Strongest area: ${strongest[0] ?? 'aim'} according to the supplied match statistics.`,
-        strongest[1] ? `Secondary strength: ${strongest[1]}. Preserve this while improving the weakest area.` : 'The available statistics show a positive contribution in the strongest measured area.',
+        text.strongestArea(strongestNames[0] ?? names.aim),
+        strongestNames[1] ? text.secondaryStrength(strongestNames[1]) : text.secondaryStrengthFallback,
       ],
       opponentPatterns: context.opponentPatterns.slice(0, 5),
       trainingPlan: [
-        { day: 1, focus: `Improve ${weakest[0] ?? 'decision making'} using the current match as the baseline.` },
-        { day: 2, focus: `Practice ${weakest[1] ?? 'utility'} on ${map}.` },
-        { day: 3, focus: `Repeat the strongest habit (${strongest[0] ?? 'aim'}) while reducing the main weakness.` },
+        { day: 1, focus: text.day1(weakestNames[0] ?? names.decisionMaking) },
+        { day: 2, focus: text.day2(weakestNames[1] ?? names.utility, map) },
+        { day: 3, focus: text.day3(strongestNames[0] ?? names.aim) },
       ],
     };
   }
