@@ -35,6 +35,13 @@ export function isDarkScheme(): boolean {
   return getTelegramWebApp()?.colorScheme === 'dark' || !window.matchMedia('(prefers-color-scheme: light)').matches;
 }
 
+/** Open an external URL: via the Telegram WebApp browser when embedded, or a normal new tab otherwise. */
+export function openExternalLink(url: string): void {
+  const tg = getTelegramWebApp();
+  if (tg?.openLink) tg.openLink(url);
+  else window.open(url, '_blank', 'noopener,noreferrer');
+}
+
 export function initTelegram(): void {
   const tgApp = getTelegramWebApp();
   if (!tgApp) return;
