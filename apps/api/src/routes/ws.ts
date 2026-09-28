@@ -6,7 +6,8 @@ import type { FastifyInstance } from 'fastify';
 import { findFaceitAccountByUserId, getMatchByFaceitId } from '@cs2coach/database';
 import type { AppConfig } from '../config';
 import type { WebSocketManager } from '../ws/websocket-manager';
-import { userOwnsMatch } from './matches';
+import { userTeamInMatch } from './matches';
+import { stateForTeam } from '../ws/team-view';
 
 export async function wsRoutes(app: FastifyInstance, config: AppConfig, wsManager: WebSocketManager): Promise<void> {
   app.get('/ws', { websocket: true }, async (socket, request) => {
@@ -20,13 +21,13 @@ export async function wsRoutes(app: FastifyInstance, config: AppConfig, wsManage
 
     const match = await getMatchByFaceitId(config.db, faceitMatchId).catch(() => null);
     const account = await findFaceitAccountByUserId(config.db, claims.sub).catch(() => null);
-    const owns = match ? await userOwnsMatch(config, claims.sub, match.id).catch(() => false) : false;
-    if (!account || !match || !owns) { ws.close(4003, 'match not found'); return; }
+    const team = match ? await userTeamInMatch(config, claims.sub, match.id).catch(() => undefined) : undefined;
+    if (!account || !match || team === undefined) { ws.close(4003, 'match not found'); return; }
 
     const clientId = `${claims.sub}-${Date.now().toString(36)}`;
-    wsManager.register(clientId, faceitMatchId, (payload) => { if (ws.readyState === 1) ws.send(JSON.stringify(payload)); });
+    wsManager.register(clientId, faceitMatchId, team, (payload) => { if (ws.readyState === 1) ws.send(JSON.stringify(payload)); });
     const state = config.matchStateEngine.getState(faceitMatchId);
-    if (state) ws.send(JSON.stringify({ type: 'match_state', matchId: faceitMatchId, state }));
+    if (state) ws.send(JSON.stringify({ type: 'match_state', matchId: faceitMatchId, state: stateForTeam(state, team) }));
     ws.on('message', () => wsManager.markAlive(clientId));
     ws.on('close', () => wsManager.unregister(clientId));
     ws.on('error', () => wsManager.unregister(clientId));

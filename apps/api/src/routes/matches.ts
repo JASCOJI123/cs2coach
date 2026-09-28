@@ -3,6 +3,7 @@ import { AppError, codes } from '@cs2coach/shared';
 import { findFaceitAccountByUserId, getMatchByFaceitId, listMatchesForUser, syncFaceitPlayerHistory, updateFaceitAccountPlayerId } from '@cs2coach/database';
 import type { AppConfig } from '../config';
 import { requireAuth } from '../middleware/telegram-auth';
+import { stateForTeam } from '../ws/team-view';
 
 const HISTORY_SYNC_TTL_MS = 60_000;
 const historySyncAt = new Map<string, number>();
@@ -13,7 +14,7 @@ export async function userOwnsMatch(config: AppConfig, userId: string, matchId: 
 }
 
 /** The requesting user's side (A=faction1, B=faction2) in a stored match, or undefined when the user is not in it. */
-async function userTeamInMatch(config: AppConfig, userId: string, matchId: string): Promise<'A' | 'B' | null | undefined> {
+export async function userTeamInMatch(config: AppConfig, userId: string, matchId: string): Promise<'A' | 'B' | null | undefined> {
   const [row] = await config.db`SELECT mp.team FROM match_players mp JOIN players p ON p.id=mp.player_id JOIN faceit_accounts fa ON fa.faceit_user_id=p.faceit_player_id WHERE mp.match_id=${matchId} AND fa.user_id=${userId} LIMIT 1`;
   if (!row) return undefined;
   return row.team === 'A' || row.team === 'B' ? row.team : null;
@@ -91,7 +92,7 @@ export async function matchesRoutes(app: FastifyInstance, config: AppConfig): Pr
   app.get('/api/matches/:faceitMatchId',{preHandler:await requireAuth(config)},async(request,reply)=>{
     const faceitMatchId=(request.params as {faceitMatchId:string}).faceitMatchId; const user=request.authedUser!;
     const match=await getMatchByFaceitId(config.db,faceitMatchId);
-    if(match){ const myTeam=await userTeamInMatch(config,user.userId,match.id); if(myTeam===undefined) throw new AppError(codes.notFound,'Match not found',404); const state=config.matchStateEngine.getState(match.faceitMatchId); return reply.send({ok:true,data:{id:match.id,faceitMatchId:match.faceitMatchId,map:match.map??state?.map??null,status:state?.status??match.status,score:{a:state?.score.a??match.scoreA??0,b:state?.score.b??match.scoreB??0},myTeam,live:state??null}}); }
+    if(match){ const myTeam=await userTeamInMatch(config,user.userId,match.id); if(myTeam===undefined) throw new AppError(codes.notFound,'Match not found',404); const state=config.matchStateEngine.getState(match.faceitMatchId); return reply.send({ok:true,data:{id:match.id,faceitMatchId:match.faceitMatchId,map:match.map??state?.map??null,status:state?.status??match.status,score:{a:state?.score.a??match.scoreA??0,b:state?.score.b??match.scoreB??0},myTeam,live:state?stateForTeam(state,myTeam):null}}); }
     const account=await findFaceitAccountByUserId(config.db,user.userId); if(!account?.faceitUserId) throw new AppError(codes.notFound,'Match not found',404);
     try{const detail=await config.faceitClient.getMatchById(faceitMatchId);const roster=[...(detail.teams?.faction1?.roster??[]),...(detail.teams?.faction2?.roster??[])];if(!roster.some((p:any)=>p.player_id===account.faceitUserId))throw new Error('match is not owned by current user');const myTeam=(detail.teams?.faction2?.roster??[]).some((p:any)=>p.player_id===account.faceitUserId)?'B':'A';return reply.send({ok:true,data:{id:`faceit-${detail.match_id}`,faceitMatchId:detail.match_id,map:extractMap(detail),status:detail.status??'finished',score:{a:detail.results?.score?.faction1??0,b:detail.results?.score?.faction2??0},myTeam,live:null}});}catch{throw new AppError(codes.notFound,'Match not found',404);}
   });
