@@ -38,49 +38,10 @@
 .account-link.danger{color:var(--u-red)!important}
 @keyframes web-pulse{50%{opacity:.35;transform:scale(.8)}}
 
-/* ---------- Landing ---------- */
-.landing{position:relative;min-height:100vh;overflow:hidden;padding:18px 16px 40px;max-width:1160px;margin:0 auto;color:var(--u-text)}
-.landing .splash-glow{position:absolute;inset:-20% -10% auto;height:70vh;pointer-events:none}
-.landing-top{position:relative;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:12px;padding-right:64px}
+/* ---------- Language switcher ---------- */
 .language-switcher{background:var(--u-panel);border-color:var(--u-line);box-shadow:none}
 .language-switcher button{color:var(--u-muted)}
 .language-switcher button.selected{background:var(--u-soft);color:var(--u-accent)}
-.landing-logo{height:40px;width:auto;max-width:48vw}
-.landing-top-actions{display:flex;align-items:center;gap:8px}
-.landing-signin{padding:9px 16px;border:1px solid rgba(255,122,0,.5);border-radius:12px;background:transparent;color:var(--u-accent);font-weight:800;font-size:13px;cursor:pointer;transition:background .2s}
-.landing-signin:hover{background:var(--u-soft)}
-.landing-hero{position:relative;z-index:1;display:grid;gap:28px;align-items:center;padding:48px 0 36px}
-.landing-copy{animation:web-rise .7s ease both}
-.landing-copy h1{margin:12px 0 14px;font-size:clamp(38px,9vw,72px);line-height:1;letter-spacing:-.02em}
-.landing-copy h1 em{font-style:normal;background:linear-gradient(135deg,var(--u-accent2),var(--u-accent));-webkit-background-clip:text;background-clip:text;color:transparent}
-.landing-copy p{max-width:540px;margin:0 0 24px;color:var(--u-muted);font-size:16px;line-height:1.6}
-.landing-cta{display:inline-flex;align-items:center;justify-content:center;gap:10px;width:100%;max-width:360px;padding:16px 24px;border:0;font-size:15px;font-weight:900;letter-spacing:.05em;cursor:pointer;transition:transform .2s,box-shadow .2s}
-.landing-cta:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 16px 34px rgba(255,122,0,.34)!important}
-.landing-cta:disabled{opacity:.7;cursor:progress}
-.landing-note{display:block;margin-top:14px;color:var(--u-muted);font-size:12px}
-.landing-radar{justify-self:center;animation:web-rise .9s .15s ease both}
-.landing-features{position:relative;z-index:1;display:grid;gap:14px}
-.landing-feature{padding:22px;border:1px solid var(--u-line);border-radius:20px;background:var(--u-panel);box-shadow:var(--u-shadow);animation:web-rise .7s ease both;transition:transform .25s,border-color .25s}
-.landing-feature:hover{transform:translateY(-4px);border-color:rgba(255,122,0,.45)}
-.landing-feature-icon{display:grid;place-items:center;width:44px;height:44px;border-radius:13px;background:var(--u-soft);color:var(--u-accent);font-size:20px}
-.landing-feature h3{margin:16px 0 6px;font-size:17px}
-.landing-feature p{margin:0;color:var(--u-muted);font-size:14px;line-height:1.55}
-.landing-steps{position:relative;z-index:1;margin-top:40px;padding:26px 22px;border:1px solid var(--u-line);border-radius:24px;background:linear-gradient(145deg,var(--u-panel2),var(--u-panel))}
-.landing-steps ol{list-style:none;margin:16px 0 22px;padding:0;display:grid;gap:12px}
-.landing-steps li{display:flex;align-items:center;gap:14px;font-size:15px;font-weight:600}
-.landing-steps li b{flex:none;display:grid;place-items:center;width:38px;height:38px;border-radius:12px;border:1px solid rgba(255,122,0,.45);color:var(--u-accent);font-size:13px}
-.landing-foot{display:block;margin-top:32px;text-align:center}
-@media (max-width:560px){.landing-signin{display:none}.landing-logo{height:34px}}
-@keyframes web-rise{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
-@media (prefers-reduced-motion:reduce){.landing-copy,.landing-radar,.landing-feature{animation:none}}
-
-@media (min-width:720px){
-  .landing{padding:24px 32px 56px}
-  .landing-hero{grid-template-columns:1.25fr .75fr;padding:72px 0 56px}
-  .landing-cta{width:auto}
-  .landing-features{grid-template-columns:repeat(3,1fr)}
-  .landing-steps ol{grid-template-columns:repeat(3,1fr)}
-}
 
 /* ---------- Desktop: wide panel + top navigation ---------- */
 @media (min-width:900px){
