@@ -38,7 +38,7 @@ export interface AppConfig {
   aiValidator: TacticalAIValidator | null;
   aiCoordinator: AiCoordinator;
   broadcastState?: (matchId: string, state: MatchState) => void;
-  broadcastDecision?: (matchId: string, decision: unknown) => void;
+  broadcastDecision?: (matchId: string, decision: unknown, team?: 'A' | 'B') => void;
   signSession: (claims: Omit<SessionClaims, 'iat' | 'exp'>) => string;
   verifySession: (token: string) => SessionClaims | null;
 }

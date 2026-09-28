@@ -3,6 +3,7 @@ import { AppError, codes, type FaceitPlayerRef, type FaceitTeamRef, type GameEve
 import { addMatchPlayer, findFaceitAccountByFaceitUserId, listMatchesForUser, updateMatchStatus, upsertMatchFromFaceit, upsertPlayer } from '@cs2coach/database';
 import type { FaceitMatchDetail } from '@cs2coach/faceit';
 import type { AppConfig } from '../config';
+import { stateForTeam } from '../ws/team-view';
 
 type GsiBody = Record<string, any>;
 type GsiMemory = { phase?: string; round: number; finished?: boolean };
@@ -86,11 +87,11 @@ export async function gameStateGsiRoutes(app: FastifyInstance, config: AppConfig
         lastAiHash.set(detail.match_id, liveState.stateHash);
         const decisionPromise = config.aiCoordinator.requestDecision(detail.match_id, liveState, localTeam);
         config.aiCoordinator.processNext();
-        void decisionPromise.then((decision) => config.broadcastDecision?.(detail.match_id, decision)).catch((error) => config.logger.warn('gsi_ai_broadcast_failed', { matchId: detail.match_id, error: error instanceof Error ? error.message : String(error) }));
+        void decisionPromise.then((decision) => config.broadcastDecision?.(detail.match_id, decision, localTeam)).catch((error) => config.logger.warn('gsi_ai_broadcast_failed', { matchId: detail.match_id, error: error instanceof Error ? error.message : String(error) }));
       }
     }
     gsiMemory.set(detail.match_id, { phase, round, finished: body.map?.phase === 'gameover' });
     if (body.map?.phase === 'gameover') { lastAiHash.delete(detail.match_id); gsiMemory.delete(detail.match_id); activeMatchCache.delete(steamId); }
-    return reply.send({ ok: true, data: { matchId: detail.match_id, state: liveState ?? config.matchStateEngine.getState(detail.match_id), receivedAt: Date.now() } });
+    return reply.send({ ok: true, data: { matchId: detail.match_id, state: (() => { const s = liveState ?? config.matchStateEngine.getState(detail.match_id); return s ? stateForTeam(s, localTeam) : s; })(), receivedAt: Date.now() } });
   });
 }

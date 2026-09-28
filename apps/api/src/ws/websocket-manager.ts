@@ -4,9 +4,11 @@
  * current state immediately, and broadcasts per-match updates.
  */
 import { createLogger, type Logger, type MatchState } from '@cs2coach/shared';
+import { stateForTeam, type TeamSide } from './team-view';
 
 interface ClientConnection {
   matchId: string;
+  team: TeamSide;
   send: (payload: unknown) => void;
   isAlive: boolean;
 }
@@ -23,8 +25,8 @@ export class WebSocketManager {
     this.logger = logger ?? createLogger('ws-manager');
   }
 
-  register(clientId: string, matchId: string, send: (payload: unknown) => void): void {
-    this.clients.set(clientId, { matchId, send, isAlive: true });
+  register(clientId: string, matchId: string, team: TeamSide, send: (payload: unknown) => void): void {
+    this.clients.set(clientId, { matchId, team, send, isAlive: true });
     this.logger.info('ws_client_connected', { clientId, matchId });
   }
 
@@ -37,18 +39,21 @@ export class WebSocketManager {
     if (c) c.isAlive = true;
   }
 
-  /** Send a live state snapshot to every client subscribed to this match. */
+  /** Send a live state snapshot to every client subscribed to this match, filtered to the client's own team. */
   broadcastState(matchId: string, state: MatchState): void {
-    this.broadcast({ type: 'match_state', matchId, state });
+    this.broadcast(matchId, (client) => ({ type: 'match_state', matchId, state: stateForTeam(state, client.team) }));
   }
 
-  broadcastDecision(matchId: string, decision: unknown): void {
-    this.broadcast({ type: 'ai_decision', matchId, decision });
+  /** A decision is coaching for one team; never deliver it to the opponents. */
+  broadcastDecision(matchId: string, decision: unknown, team?: TeamSide): void {
+    this.broadcast(matchId, (client) => (team && client.team !== team ? null : { type: 'ai_decision', matchId, decision }));
   }
 
-  private broadcast(payload: WsEvent): void {
+  private broadcast(matchId: string, build: (client: ClientConnection) => WsEvent | null): void {
     for (const [clientId, client] of this.clients) {
-      if (client.matchId !== payload.matchId) continue;
+      if (client.matchId !== matchId) continue;
+      const payload = build(client);
+      if (!payload) continue;
       try {
         client.send(payload);
       } catch (err) {
