@@ -2,6 +2,8 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { randomBytes } from 'node:crypto';
 import { AppError, codes, encryptSecret, serializeEncrypted } from '@cs2coach/shared';
 import {
+  createWebUser,
+  findFaceitAccountByFaceitUserId,
   findFaceitAccountByUserId,
   relinkFaceitAccount,
   deleteFaceitAccount,
@@ -11,7 +13,8 @@ import {
 import type { AppConfig } from '../config';
 import { requireAuth } from '../middleware/telegram-auth';
 
-interface PendingOAuth { userId: string; exp: number; codeVerifier: string; }
+/** userId is null for a website sign-in; the account is resolved from the FACEIT identity in the callback. */
+interface PendingOAuth { userId: string | null; exp: number; codeVerifier: string; }
 interface PendingHandoff { userId: string; exp: number; }
 const PENDING_TTL_MS = 10 * 60_000;
 const HANDOFF_TTL_MS = 5 * 60_000;
@@ -19,11 +22,20 @@ const pendingStates = new Map<string, PendingOAuth>();
 const pendingHandoffs = new Map<string, PendingHandoff>();
 
 function createHandoff(userId: string): string { const handoff = randomBytes(32).toString('hex'); pendingHandoffs.set(handoff, { userId, exp: Date.now() + HANDOFF_TTL_MS }); return handoff; }
-function miniAppCallbackUrl(webappUrl: string, handoff: string): string { const url = new URL(webappUrl); url.searchParams.set('faceit_handoff', handoff); return url.toString(); }
+function webCallbackUrl(webappUrl: string, handoff: string): string { const url = new URL(webappUrl); url.searchParams.set('faceit_handoff', handoff); url.hash = '/faceit-callback'; return url.toString(); }
 function isRetryableDbError(error: unknown): boolean { const code = typeof error === 'object' && error !== null && 'code' in error ? String((error as { code?: unknown }).code ?? '') : ''; return ['08000','08003','08006','40001','40P01','53300','57P01'].includes(code); }
 async function disconnectFaceitWithRetry(config: AppConfig, userId: string): Promise<void> { let lastError: unknown; for (let attempt = 1; attempt <= 3; attempt += 1) { try { await deleteFaceitAccount(config.db, userId); return; } catch (error) { lastError = error; config.logger.warn('faceit_disconnect_attempt_failed', { userId, attempt, retryable: isRetryableDbError(error), error: error instanceof Error ? error.message : String(error) }); if (!isRetryableDbError(error) || attempt === 3) break; await new Promise((resolve) => setTimeout(resolve, 250 * attempt)); } } throw lastError; }
 
 export async function faceitAuthRoutes(app: FastifyInstance, config: AppConfig): Promise<void> {
+  // Website sign-in: no session yet, the browser is redirected straight to FACEIT.
+  app.get('/api/auth/faceit/login', async (_request, reply) => {
+    if (!config.env.faceitClientId) throw new AppError(codes.missingEnv, 'FACEIT_CLIENT_ID is missing on the server', 503);
+    const { state, codeVerifier, codeChallenge } = config.faceitOAuth.randomOAuthState(PENDING_TTL_MS);
+    pendingStates.set(state, { userId: null, exp: Date.now() + PENDING_TTL_MS, codeVerifier });
+    config.logger.info('faceit_login_started', {});
+    return reply.redirect(config.faceitOAuth.buildAuthorizeUrl(config.faceitOAuth.oauthConfig, state, codeChallenge));
+  });
+
   app.get('/api/auth/faceit', { preHandler: await requireAuth(config) }, async (request, reply) => {
     const user = request.authedUser!;
     if (!config.env.faceitClientId) return reply.status(503).send({ ok: false, error: { code: codes.missingEnv, message: 'FACEIT_CLIENT_ID is missing on the server' } });
@@ -44,12 +56,14 @@ export async function faceitAuthRoutes(app: FastifyInstance, config: AppConfig):
     if (!faceitUserId) throw new AppError(codes.upstreamError, 'FACEIT did not return a user id', 400);
     let nickname = userInfoNickname; let avatar: string | null = null; let country: string | null = null; let skillLevel: number | null = null; let elo: number | null = null;
     try { const profile = await config.faceitClient.resolvePlayer(faceitUserId, userInfoNickname, 'cs2'); nickname = profile.nickname ?? nickname; avatar = profile.avatar ?? null; country = profile.country ?? null; skillLevel = profile.games?.cs2?.skill_level ?? null; elo = profile.games?.cs2?.faceit_elo ?? null; faceitUserId = profile.player_id || faceitUserId; config.logger.info('faceit_profile_loaded', { hasNickname: Boolean(nickname), hasSkillLevel: skillLevel != null, hasElo: elo != null, resolvedPlayerId: Boolean(profile.player_id) }); } catch (err) { config.logger.warn('faceit_profile_load_failed', { error: err instanceof Error ? err.message : String(err) }); }
-    const existing = await findFaceitAccountByUserId(config.db, pending.userId); const accessTokenEnc = serializeEncrypted(encryptSecret(config.env.sessionSecret, tokens.accessToken)); const refreshTokenEnc = tokens.refreshToken ? serializeEncrypted(encryptSecret(config.env.sessionSecret, tokens.refreshToken)) : existing?.refreshToken ?? null;
-    await relinkFaceitAccount(config.db, { userId: pending.userId, faceitUserId, nickname: nickname || existing?.nickname || faceitUserId, avatar: avatar ?? existing?.avatar ?? null, country: country ?? existing?.country ?? null, skillLevel: skillLevel ?? existing?.skillLevel ?? null, elo: elo ?? existing?.elo ?? null, accessToken: accessTokenEnc, refreshToken: refreshTokenEnc, expiresAtMs: tokens.expiresAtMs });
-    const handoff = createHandoff(pending.userId); return reply.redirect(miniAppCallbackUrl(config.env.telegramWebappUrl ?? 'https://jascoji123.github.io/cs2coach/v2/', handoff));
+    let userId = pending.userId;
+    if (!userId) { const owner = await findFaceitAccountByFaceitUserId(config.db, faceitUserId); userId = owner?.userId ?? (await createWebUser(config.db)).id; config.logger.info('faceit_login_completed', { userId, newUser: !owner }); }
+    const existing = await findFaceitAccountByUserId(config.db, userId); const accessTokenEnc = serializeEncrypted(encryptSecret(config.env.sessionSecret, tokens.accessToken)); const refreshTokenEnc = tokens.refreshToken ? serializeEncrypted(encryptSecret(config.env.sessionSecret, tokens.refreshToken)) : existing?.refreshToken ?? null;
+    await relinkFaceitAccount(config.db, { userId, faceitUserId, nickname: nickname || existing?.nickname || faceitUserId, avatar: avatar ?? existing?.avatar ?? null, country: country ?? existing?.country ?? null, skillLevel: skillLevel ?? existing?.skillLevel ?? null, elo: elo ?? existing?.elo ?? null, accessToken: accessTokenEnc, refreshToken: refreshTokenEnc, expiresAtMs: tokens.expiresAtMs });
+    const handoff = createHandoff(userId); return reply.redirect(webCallbackUrl(config.env.webAppUrl, handoff));
   });
 
-  app.post('/api/auth/faceit/callback-session', async (request, reply) => { const body = request.body as { handoff?: string } | undefined; const handoff = body?.handoff; if (!handoff || !/^[a-f0-9]{64}$/.test(handoff)) throw new AppError(codes.badRequest, 'handoff is required', 400); const pending = pendingHandoffs.get(handoff); pendingHandoffs.delete(handoff); if (!pending || pending.exp < Date.now()) throw new AppError(codes.forbidden, 'Invalid or expired FACEIT handoff', 400); const token = config.signSession({ sub: pending.userId, telegramId: 0 }); return reply.send({ ok: true, data: { token, expiresAt: Date.now() + config.env.sessionTtlMs, user: { id: pending.userId, firstName: '', username: '' }, demoMode: config.env.isDemoMode } }); });
+  app.post('/api/auth/faceit/callback-session', async (request, reply) => { const body = request.body as { handoff?: string } | undefined; const handoff = body?.handoff; if (!handoff || !/^[a-f0-9]{64}$/.test(handoff)) throw new AppError(codes.badRequest, 'handoff is required', 400); const pending = pendingHandoffs.get(handoff); pendingHandoffs.delete(handoff); if (!pending || pending.exp < Date.now()) throw new AppError(codes.forbidden, 'Invalid or expired FACEIT handoff', 400); const token = config.signSession({ sub: pending.userId, telegramId: 0 }); const account = await findFaceitAccountByUserId(config.db, pending.userId); return reply.send({ ok: true, data: { token, expiresAt: Date.now() + config.env.sessionTtlMs, user: { id: pending.userId, firstName: account?.nickname ?? '', username: account?.nickname ?? '' }, demoMode: config.env.isDemoMode } }); });
 
   app.get('/api/auth/faceit/status', { preHandler: await requireAuth(config) }, async (request, reply) => {
     const user = request.authedUser!;

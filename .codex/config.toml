@@ -1,0 +1,5 @@
+[shell_environment_policy]
+inherit = "core"
+
+[shell_environment_policy.set]
+GATEGUARD_EXEMPT_GLOBS = "packages/**,apps/**,bot/**,docs/**,scripts/**,eslint.config.js,vitest.config.ts,render.yaml,README.md,tsconfig.base.json,tsconfig.json,.gitignore,.env.example,package.json,.npmrc,.claude/**"

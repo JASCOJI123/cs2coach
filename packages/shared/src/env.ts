@@ -26,6 +26,9 @@ export interface Env {
   databaseUrl?: string;
   telegramBotToken?: string;
   telegramWebappUrl?: string;
+  /** Public website URL (FACEIT login returns here, bot links point here). */
+  webAppUrl: string;
+  telegramBotUsername?: string;
   telegramWebhookUrl?: string;
   telegramWebhookSecret?: string;
   faceitApiKey?: string;
@@ -91,6 +94,8 @@ export function loadEnv(source?: EnvSource): Env {
     databaseUrl: readString('DATABASE_URL', source),
     telegramBotToken: readString('TELEGRAM_BOT_TOKEN', source),
     telegramWebappUrl: readString('TELEGRAM_WEBAPP_URL', source),
+    webAppUrl: readString('WEB_APP_URL', source) ?? readString('TELEGRAM_WEBAPP_URL', source) ?? 'https://jascoji123.github.io/cs2coach/v2/',
+    telegramBotUsername: readString('TELEGRAM_BOT_USERNAME', source)?.replace(/^@/, ''),
     telegramWebhookUrl: readString('TELEGRAM_WEBHOOK_URL', source),
     telegramWebhookSecret: readString('TELEGRAM_WEBHOOK_SECRET', source),
     faceitApiKey: readString('FACEIT_API_KEY', source),

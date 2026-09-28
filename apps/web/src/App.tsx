@@ -5,9 +5,10 @@ import Matches from './pages/Matches';
 import MatchPage from './pages/MatchPage';
 import PostMatch from './pages/PostMatch';
 import FaceitCallback from './pages/FaceitCallback';
+import Settings from './pages/Settings';
 import { hasAuthToken } from './lib/api';
 
-export type Route = 'splash' | 'home' | 'matches' | 'match' | 'post-match' | 'faceit-callback';
+export type Route = 'splash' | 'home' | 'matches' | 'match' | 'post-match' | 'faceit-callback' | 'settings';
 
 function parseHash(): { route: Route; param?: string } {
   const raw = window.location.hash.replace(/^#\/?/, '');
@@ -19,6 +20,7 @@ function parseHash(): { route: Route; param?: string } {
     case 'match': return { route: 'match', param: param ? decodeURIComponent(param.split('?')[0]) : undefined };
     case 'post-match': return { route: 'post-match', param: param ? decodeURIComponent(param.split('?')[0]) : undefined };
     case 'faceit-callback': return { route: 'faceit-callback' };
+    case 'settings': return { route: 'settings' };
     default: return { route: 'splash' };
   }
 }
@@ -39,6 +41,7 @@ export default function App() {
     case 'match': return current.param ? <MatchPage key={current.param} faceitMatchId={current.param} /> : <Matches />;
     case 'post-match': return current.param ? <PostMatch key={current.param} faceitMatchId={current.param} /> : <Matches />;
     case 'faceit-callback': return <FaceitCallback />;
-    default: return <Splash />;
+    case 'settings': return <Settings />;
+    default: return hasAuthToken() ? <Home /> : <Splash />;
   }
 }

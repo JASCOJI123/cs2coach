@@ -24,8 +24,10 @@ services:
         value: 10000
       - key: ALLOWED_ORIGINS
         value: https://jascoji123.github.io
-      - key: TELEGRAM_WEBAPP_URL
+      - key: WEB_APP_URL
         value: https://jascoji123.github.io/cs2coach/v2/
+      - key: TELEGRAM_BOT_USERNAME
+        sync: false
       - key: FACEIT_REDIRECT_URI
         value: https://cs2coach-api-7ndh.onrender.com/api/auth/faceit/callback
       - key: GROQ_MODEL
@@ -80,7 +82,7 @@ services:
         sync: false
       - key: TELEGRAM_WEBHOOK_URL
         sync: false
-      - key: TELEGRAM_WEBAPP_URL
+      - key: WEB_APP_URL
         value: https://jascoji123.github.io/cs2coach/v2/
       - key: DATABASE_URL
         sync: false

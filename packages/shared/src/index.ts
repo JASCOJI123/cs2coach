@@ -6,4 +6,4 @@ export * from './api';
 export * from './time';
 export * from './state-hash';
 export * from './crypto';
-export * from './types';
+export * from './types';export * from './bot-copy';

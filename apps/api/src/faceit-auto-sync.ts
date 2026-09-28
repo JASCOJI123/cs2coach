@@ -1,5 +1,6 @@
 import { syncFaceitPlayerHistory, updateFaceitAccountPlayerId, recordEloSnapshot } from '@cs2coach/database';
 import type { AppConfig } from './config';
+import { notifyMatchEvent } from './notify';
 
 const SYNC_INTERVAL_MS = 30_000;
 
@@ -32,7 +33,20 @@ export async function syncFaceitAccountsOnce(config: AppConfig): Promise<void> {
           elo: syncedElo,
           items: history.items ?? [],
         });
+<<<<<<< Updated upstream
         if (syncedElo != null) await recordEloSnapshot(config.db, { userId, elo: syncedElo });
+=======
+        for (const item of history.items ?? []) {
+          if (!item.match_id || !item.finished_at || String(item.status ?? '').toLowerCase() !== 'finished') continue;
+          await notifyMatchEvent(config, userId, 'match_finished', {
+            faceitMatchId: item.match_id,
+            map: item.details?.map ?? null,
+            scoreA: item.results?.score?.faction1 ?? 0,
+            scoreB: item.results?.score?.faction2 ?? 0,
+            eventAtMs: item.finished_at * 1000,
+          });
+        }
+>>>>>>> Stashed changes
         config.logger.info('faceit_auto_sync_ok', { userId, matchCount: history.items?.length ?? 0 });
       } catch (error) {
         config.logger.warn('faceit_auto_sync_failed', {

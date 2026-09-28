@@ -1,7 +1,7 @@
 import type { Sql } from 'postgres';
 import type { BuyType, MatchStatus } from '@cs2coach/shared';
 
-export interface UserRow { id:string; telegramId:number; telegramUsername:string|null; createdAt:Date; updatedAt:Date; }
+export interface UserRow { id:string; telegramId:number|null; telegramUsername:string|null; createdAt:Date; updatedAt:Date; }
 export interface FaceitAccountRow { id:string; userId:string; faceitUserId:string; nickname:string; avatar:string|null; country:string|null; skillLevel:number|null; elo:number|null; accessToken:string|null; refreshToken:string|null; expiresAt:Date|null; createdAt:Date; updatedAt:Date; }
 export interface PlayerRow { id:string; faceitPlayerId:string; nickname:string; country:string|null; avatar:string|null; skillLevel:number|null; elo:number|null; createdAt:Date; updatedAt:Date; }
 export interface TeamRow { id:string; faceitTeamId:string|null; name:string; createdAt:Date; }
@@ -42,3 +42,4 @@ export async function upsertMatchAnalysis(sql:Sql,input:{matchId:string;pre?:unk
 export async function getMatchAnalysis(sql:Sql,matchId:string):Promise<{preMatchAnalysis:unknown|null;liveAnalysis:unknown|null;postMatchAnalysis:unknown|null}|null>{const[r]=await sql<any[]>`select pre_match_analysis,live_analysis,post_match_analysis from match_analysis where match_id=${matchId}`;if(!r)return null;return{preMatchAnalysis:r.preMatchAnalysis,liveAnalysis:r.liveAnalysis,postMatchAnalysis:r.postMatchAnalysis};}
 export async function upsertTrainingPlan(sql:Sql,input:{userId:string;matchId?:string|null;planJson:unknown}):Promise<void>{await sql`insert into training_plans(user_id,match_id,plan_json)values(${input.userId},${input.matchId??null},${JSON.stringify(input.planJson)})`;}
 export type {BuyType}; export {syncFaceitPlayerHistory} from './faceit-history';
+export * from './web-accounts';
