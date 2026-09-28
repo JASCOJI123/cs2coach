@@ -1,12 +1,53 @@
 import type { FastifyInstance } from 'fastify';
 import { AppError, codes } from '@cs2coach/shared';
-import { findFaceitAccountByUserId, getMatchByFaceitId, listMatchesForUser, syncFaceitPlayerHistory, updateFaceitAccountPlayerId } from '@cs2coach/database';
+import { findFaceitAccountByUserId, getMatchByFaceitId, listMatchesForUser, syncFaceitPlayerHistory, updateFaceitAccountPlayerId, updateMatchStatus, type MatchRow } from '@cs2coach/database';
+import type { MatchStatus } from '@cs2coach/shared';
 import type { AppConfig } from '../config';
 import { requireAuth } from '../middleware/telegram-auth';
 import { stateForTeam } from '../ws/team-view';
 
 const HISTORY_SYNC_TTL_MS = 60_000;
 const historySyncAt = new Map<string, number>();
+const ACTIVE_STATUSES = new Set(['scheduled', 'configuring', 'ready', 'ongoing']);
+const ENDED_STATUSES = new Set<MatchStatus>(['finished', 'aborted', 'cancelled']);
+const STALE_CHECK_TTL_MS = 60_000;
+/** A match with no FACEIT answer and no game data for this long is treated as abandoned. */
+const ABANDONED_AFTER_MS = 3 * 60 * 60_000;
+const staleCheckAt = new Map<string, number>();
+
+/**
+ * Stored matches stay "ongoing" when the end of the game never reached us (no
+ * gameover GSI tick, missed webhook, cancelled match). Ask FACEIT about the ones
+ * that look live but are not receiving game data, and store their real status.
+ */
+async function reconcileActiveMatches(config: AppConfig, matches: MatchRow[]): Promise<void> {
+  const now = Date.now();
+  const stale = matches.filter((m) => {
+    if (!ACTIVE_STATUSES.has(String(m.status).toLowerCase())) return false;
+    const live = config.matchStateEngine.getState(m.faceitMatchId);
+    if (live && live.status !== 'finished' && now - new Date(m.updatedAt).getTime() < 5 * 60_000) return false;
+    return now - (staleCheckAt.get(m.faceitMatchId) ?? 0) >= STALE_CHECK_TTL_MS;
+  }).slice(0, 5);
+  await Promise.all(stale.map(async (m) => {
+    staleCheckAt.set(m.faceitMatchId, now);
+    let status: MatchStatus | null = null; let scoreA: number | undefined; let scoreB: number | undefined; let finishedAtMs: number | undefined; let map: string | null = null;
+    try {
+      const detail: any = await config.faceitClient.getMatchById(m.faceitMatchId);
+      const raw = String(detail?.status ?? '').toLowerCase();
+      status = raw.includes('cancel') ? 'cancelled' : raw.includes('abort') ? 'aborted' : raw === 'finished' ? 'finished' : null;
+      if (status === 'finished') { scoreA = detail.results?.score?.faction1; scoreB = detail.results?.score?.faction2; }
+      finishedAtMs = typeof detail?.finished_at === 'number' ? detail.finished_at * 1000 : undefined;
+      map = extractMap(detail);
+    } catch (error) {
+      config.logger.debug('stale_match_lookup_failed', { matchId: m.faceitMatchId, error: error instanceof Error ? error.message : String(error) });
+    }
+    const lastSeen = new Date(m.updatedAt ?? m.startedAt ?? m.createdAt).getTime();
+    if (!status && now - lastSeen > ABANDONED_AFTER_MS) status = 'aborted';
+    if (!status) return;
+    await updateMatchStatus(config.db, { matchId: m.id, status, scoreA, scoreB, map, finishedAtMs: finishedAtMs ?? now });
+    Object.assign(m, { status, scoreA: scoreA ?? m.scoreA, scoreB: scoreB ?? m.scoreB, map: m.map ?? map, finishedAt: new Date(finishedAtMs ?? now) });
+  }));
+}
 
 export async function userOwnsMatch(config: AppConfig, userId: string, matchId: string): Promise<boolean> {
   const [row] = await config.db`SELECT 1 FROM match_players mp JOIN players p ON p.id=mp.player_id JOIN faceit_accounts fa ON fa.faceit_user_id=p.faceit_player_id WHERE mp.match_id=${matchId} AND fa.user_id=${userId} LIMIT 1`;
@@ -82,6 +123,7 @@ export async function matchesRoutes(app: FastifyInstance, config: AppConfig): Pr
       }
     }
     const dbMatches = await listMatchesForUser(config.db,{userId:user.userId,limit:30});
+    await reconcileActiveMatches(config, dbMatches).catch((error) => config.logger.warn('stale_match_reconcile_failed', { userId:user.userId, error:error instanceof Error?error.message:String(error) }));
     const merged = new Map<string,any>();
     for (const m of dbMatches) merged.set(m.faceitMatchId,{id:m.id,faceitMatchId:m.faceitMatchId,map:m.map,status:m.status,score:{a:m.scoreA??0,b:m.scoreB??0},startedAt:m.startedAt,finishedAt:m.finishedAt,result:matchResult(m.playerTeam??null,m.status,m.scoreA??0,m.scoreB??0),myTeam:m.playerTeam??null});
     for (const m of liveHistory) { const old=merged.get(m.faceitMatchId); merged.set(m.faceitMatchId,old?{...old,map:m.map??old.map,status:m.status??old.status,score:m.score??old.score,startedAt:m.startedAt??old.startedAt,finishedAt:m.finishedAt??old.finishedAt,result:m.result??old.result,myTeam:m.myTeam??old.myTeam}:m); }
@@ -92,7 +134,7 @@ export async function matchesRoutes(app: FastifyInstance, config: AppConfig): Pr
   app.get('/api/matches/:faceitMatchId',{preHandler:await requireAuth(config)},async(request,reply)=>{
     const faceitMatchId=(request.params as {faceitMatchId:string}).faceitMatchId; const user=request.authedUser!;
     const match=await getMatchByFaceitId(config.db,faceitMatchId);
-    if(match){ const myTeam=await userTeamInMatch(config,user.userId,match.id); if(myTeam===undefined) throw new AppError(codes.notFound,'Match not found',404); const state=config.matchStateEngine.getState(match.faceitMatchId); return reply.send({ok:true,data:{id:match.id,faceitMatchId:match.faceitMatchId,map:match.map??state?.map??null,status:state?.status??match.status,score:{a:state?.score.a??match.scoreA??0,b:state?.score.b??match.scoreB??0},myTeam,live:state?stateForTeam(state,myTeam):null}}); }
+    if(match){ const myTeam=await userTeamInMatch(config,user.userId,match.id); if(myTeam===undefined) throw new AppError(codes.notFound,'Match not found',404); const state=config.matchStateEngine.getState(match.faceitMatchId); return reply.send({ok:true,data:{id:match.id,faceitMatchId:match.faceitMatchId,map:match.map??state?.map??null,status:ENDED_STATUSES.has(match.status)?match.status:state?.status??match.status,score:{a:state?.score.a??match.scoreA??0,b:state?.score.b??match.scoreB??0},myTeam,live:state?stateForTeam(state,myTeam):null}}); }
     const account=await findFaceitAccountByUserId(config.db,user.userId); if(!account?.faceitUserId) throw new AppError(codes.notFound,'Match not found',404);
     try{const detail=await config.faceitClient.getMatchById(faceitMatchId);const roster=[...(detail.teams?.faction1?.roster??[]),...(detail.teams?.faction2?.roster??[])];if(!roster.some((p:any)=>p.player_id===account.faceitUserId))throw new Error('match is not owned by current user');const myTeam=(detail.teams?.faction2?.roster??[]).some((p:any)=>p.player_id===account.faceitUserId)?'B':'A';return reply.send({ok:true,data:{id:`faceit-${detail.match_id}`,faceitMatchId:detail.match_id,map:extractMap(detail),status:detail.status??'finished',score:{a:detail.results?.score?.faction1??0,b:detail.results?.score?.faction2??0},myTeam,live:null}});}catch{throw new AppError(codes.notFound,'Match not found',404);}
   });
