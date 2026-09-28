@@ -1,17 +1,19 @@
-// Map thumbnails are imported as ES modules (not served from public/) so Vite
+// Map images are imported as ES modules (not served from public/) so Vite
 // bundles them into assets/ with the rest of the build. The GitHub Pages
 // workflow only mirrors dist/assets + dist/index.html into the versioned
 // /v2/ path Telegram opens, so anything served from public/ 404s there —
 // bundling avoids depending on that copy step at all.
-import deMirage from '../assets/map-thumbnails/de_mirage.svg';
-import deDust2 from '../assets/map-thumbnails/de_dust2.svg';
-import deInferno from '../assets/map-thumbnails/de_inferno.svg';
-import deAnubis from '../assets/map-thumbnails/de_anubis.svg';
-import deAncient from '../assets/map-thumbnails/de_ancient.svg';
-import deNuke from '../assets/map-thumbnails/de_nuke.svg';
-import deVertigo from '../assets/map-thumbnails/de_vertigo.svg';
-import deOverpass from '../assets/map-thumbnails/de_overpass.svg';
-import deTrain from '../assets/map-thumbnails/de_train.svg';
+// Photos: in-game screenshots from github.com/ghostcap-gaming/cs2-map-images,
+// resized to 960px WebP.
+import deMirage from '../assets/map-photos/de_mirage.webp';
+import deDust2 from '../assets/map-photos/de_dust2.webp';
+import deInferno from '../assets/map-photos/de_inferno.webp';
+import deAnubis from '../assets/map-photos/de_anubis.webp';
+import deAncient from '../assets/map-photos/de_ancient.webp';
+import deNuke from '../assets/map-photos/de_nuke.webp';
+import deVertigo from '../assets/map-photos/de_vertigo.webp';
+import deOverpass from '../assets/map-photos/de_overpass.webp';
+import deTrain from '../assets/map-photos/de_train.webp';
 import unknownMap from '../assets/map-thumbnails/unknown.svg';
 
 const MAP_IMAGES: Record<string, string> = {
