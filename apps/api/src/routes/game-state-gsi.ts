@@ -91,7 +91,7 @@ export async function gameStateGsiRoutes(app: FastifyInstance, config: AppConfig
       }
     }
     gsiMemory.set(detail.match_id, { phase, round, finished: body.map?.phase === 'gameover' });
-    if (body.map?.phase === 'gameover') { lastAiHash.delete(detail.match_id); gsiMemory.delete(detail.match_id); activeMatchCache.delete(steamId); }
+    if (body.map?.phase === 'gameover') { await updateMatchStatus(config.db, { matchId: match.id, status: 'finished', finishedAtMs: Date.now() }); lastAiHash.delete(detail.match_id); gsiMemory.delete(detail.match_id); activeMatchCache.delete(steamId); }
     return reply.send({ ok: true, data: { matchId: detail.match_id, state: (() => { const s = liveState ?? config.matchStateEngine.getState(detail.match_id); return s ? stateForTeam(s, localTeam) : s; })(), receivedAt: Date.now() } });
   });
 }
