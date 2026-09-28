@@ -5,9 +5,12 @@ import { I18nProvider } from './lib/i18n';
 import './styles.css';
 import './design-system.css';
 import './web-layout.css';
+import './app-skin.css';
 import { initSystemTheme } from './dark-mode';
+import { initPointerGlow } from './lib/pointerGlow';
 
 initSystemTheme();
+initPointerGlow();
 
 // FACEIT sign-in returns to ?faceit_handoff=<hex>#/faceit-callback; make sure
 // the callback page handles it even if the hash was lost on the way.
