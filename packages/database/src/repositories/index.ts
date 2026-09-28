@@ -43,3 +43,4 @@ export async function getMatchAnalysis(sql:Sql,matchId:string):Promise<{preMatch
 export async function upsertTrainingPlan(sql:Sql,input:{userId:string;matchId?:string|null;planJson:unknown}):Promise<void>{await sql`insert into training_plans(user_id,match_id,plan_json)values(${input.userId},${input.matchId??null},${JSON.stringify(input.planJson)})`;}
 export type {BuyType}; export {syncFaceitPlayerHistory} from './faceit-history';
 export * from './web-accounts';
+export * from './player-deaths';
