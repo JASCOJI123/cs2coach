@@ -4,12 +4,7 @@ import { botCopy, botLocale, createLogger, loadEnv, parseLinkPayload, siteUrl, t
 import { getDb, closeDb, findUserByTelegramId, findFaceitAccountByUserId, linkTelegramByToken, listMatchesForUser, setNotificationsEnabledByTelegramId } from '@cs2coach/database';
 
 const logger: Logger = createLogger('bot');
-<<<<<<< Updated upstream
-const DEFAULT_WEBAPP_URL = 'https://jascoji123.github.io/cs2coach/v2/';
 const DEFAULT_WEBHOOK_URL = 'https://cs2coach-bot-1z3b.onrender.com/telegram/webhook';
-=======
-const DEFAULT_WEBHOOK_URL = 'https://cs2coach-bot.onrender.com/telegram/webhook';
->>>>>>> Stashed changes
 
 /**
  * The website is the product; this bot only delivers notifications and links

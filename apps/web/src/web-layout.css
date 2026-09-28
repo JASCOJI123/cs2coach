@@ -1,6 +1,9 @@
 /* Standalone website layout: landing page, settings, shared nav and desktop breakpoints.
    Loaded last so it can widen the phone-first Mini App layout. */
 
+/* Local aliases onto the design-system tokens (styles.css + design-system.css). */
+:root{--u-panel:var(--panel);--u-panel2:var(--panel2);--u-panel3:var(--line);--u-line:var(--line);--u-text:var(--text);--u-muted:var(--muted);--u-accent:var(--orange);--u-accent2:var(--orange2);--u-red:var(--red);--u-soft:var(--accent-soft);--u-shadow:var(--shadow)}
+
 /* ---------- Shared nav ---------- */
 .site-nav .site-nav-brand{display:none}
 .site-nav button:disabled{opacity:.4;cursor:default}
