@@ -12,6 +12,13 @@ export async function userOwnsMatch(config: AppConfig, userId: string, matchId: 
   return Boolean(row);
 }
 
+/** The requesting user's side (A=faction1, B=faction2) in a stored match, or undefined when the user is not in it. */
+async function userTeamInMatch(config: AppConfig, userId: string, matchId: string): Promise<'A' | 'B' | null | undefined> {
+  const [row] = await config.db`SELECT mp.team FROM match_players mp JOIN players p ON p.id=mp.player_id JOIN faceit_accounts fa ON fa.faceit_user_id=p.faceit_player_id WHERE mp.match_id=${matchId} AND fa.user_id=${userId} LIMIT 1`;
+  if (!row) return undefined;
+  return row.team === 'A' || row.team === 'B' ? row.team : null;
+}
+
 
 function matchResult(team:'A'|'B'|null,status:string,scoreA:number,scoreB:number):'WIN'|'LOSE'|null{if(status.toLowerCase()!=='finished'||team===null||scoreA===scoreB)return null;const won=team==='A'?scoreA>scoreB:scoreB>scoreA;return won?'WIN':'LOSE';}
 function playerTeamFromHistory(item:unknown,playerId:string):'A'|'B'|null{if(!item||typeof item!=='object')return null;const teams=(item as{teams?:unknown}).teams;if(!teams||typeof teams!=='object')return null;const factions=Object.values(teams as Record<string,unknown>);for(let i=0;i<factions.length;i+=1){const faction=factions[i];if(!faction||typeof faction!=='object')continue;const members=(faction as{members?:unknown;roster?:unknown}).members??(faction as{roster?:unknown}).roster;if(!Array.isArray(members))continue;if(members.some(member=>typeof member==='object'&&member!==null&&'player_id' in member&&String((member as{player_id?:unknown}).player_id)===playerId))return i===1?'B':'A';}return null;}
@@ -84,16 +91,17 @@ export async function matchesRoutes(app: FastifyInstance, config: AppConfig): Pr
   app.get('/api/matches/:faceitMatchId',{preHandler:await requireAuth(config)},async(request,reply)=>{
     const faceitMatchId=(request.params as {faceitMatchId:string}).faceitMatchId; const user=request.authedUser!;
     const match=await getMatchByFaceitId(config.db,faceitMatchId);
-    if(match){ if(!(await userOwnsMatch(config,user.userId,match.id))) throw new AppError(codes.notFound,'Match not found',404); const state=config.matchStateEngine.getState(match.faceitMatchId); return reply.send({ok:true,data:{id:match.id,faceitMatchId:match.faceitMatchId,map:match.map??state?.map??null,status:state?.status??match.status,score:{a:state?.score.a??match.scoreA??0,b:state?.score.b??match.scoreB??0},live:state??null}}); }
+    if(match){ const myTeam=await userTeamInMatch(config,user.userId,match.id); if(myTeam===undefined) throw new AppError(codes.notFound,'Match not found',404); const state=config.matchStateEngine.getState(match.faceitMatchId); return reply.send({ok:true,data:{id:match.id,faceitMatchId:match.faceitMatchId,map:match.map??state?.map??null,status:state?.status??match.status,score:{a:state?.score.a??match.scoreA??0,b:state?.score.b??match.scoreB??0},myTeam,live:state??null}}); }
     const account=await findFaceitAccountByUserId(config.db,user.userId); if(!account?.faceitUserId) throw new AppError(codes.notFound,'Match not found',404);
-    try{const detail=await config.faceitClient.getMatchById(faceitMatchId);const roster=[...(detail.teams?.faction1?.roster??[]),...(detail.teams?.faction2?.roster??[])];if(!roster.some((p:any)=>p.player_id===account.faceitUserId))throw new Error('match is not owned by current user');return reply.send({ok:true,data:{id:`faceit-${detail.match_id}`,faceitMatchId:detail.match_id,map:extractMap(detail),status:detail.status??'finished',score:{a:detail.results?.score?.faction1??0,b:detail.results?.score?.faction2??0},live:null}});}catch{throw new AppError(codes.notFound,'Match not found',404);}
+    try{const detail=await config.faceitClient.getMatchById(faceitMatchId);const roster=[...(detail.teams?.faction1?.roster??[]),...(detail.teams?.faction2?.roster??[])];if(!roster.some((p:any)=>p.player_id===account.faceitUserId))throw new Error('match is not owned by current user');const myTeam=(detail.teams?.faction2?.roster??[]).some((p:any)=>p.player_id===account.faceitUserId)?'B':'A';return reply.send({ok:true,data:{id:`faceit-${detail.match_id}`,faceitMatchId:detail.match_id,map:extractMap(detail),status:detail.status??'finished',score:{a:detail.results?.score?.faction1??0,b:detail.results?.score?.faction2??0},myTeam,live:null}});}catch{throw new AppError(codes.notFound,'Match not found',404);}
   });
 
   app.post('/api/matches/:faceitMatchId/coach',{preHandler:await requireAuth(config)},async(request,reply)=>{
     const faceitMatchId=(request.params as {faceitMatchId:string}).faceitMatchId; const user=request.authedUser!; const match=await getMatchByFaceitId(config.db,faceitMatchId);
-    if(!match||!(await userOwnsMatch(config,user.userId,match.id)))throw new AppError(codes.notFound,'Match not found',404);
+    const myTeam=match?await userTeamInMatch(config,user.userId,match.id):undefined;
+    if(!match||myTeam===undefined)throw new AppError(codes.notFound,'Match not found',404);
     const state=config.matchStateEngine.getState(match.faceitMatchId); if(!state||!state.gameDataAvailable)throw new AppError(codes.waitingForGameData,'Waiting for live game data',202);
     const body=(request.body??{}) as {language?:unknown}; const language=body.language==='ru'||body.language==='en'||body.language==='uz'?body.language:'uz';
-    const decision=await config.aiCoordinator.requestDecision(match.faceitMatchId,state,'A',language);config.aiCoordinator.processNext();return reply.send({ok:true,data:await decision});
+    const decision=await config.aiCoordinator.requestDecision(match.faceitMatchId,state,myTeam??'A',language);config.aiCoordinator.processNext();return reply.send({ok:true,data:await decision});
   });
 }
