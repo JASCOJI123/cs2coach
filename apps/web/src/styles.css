@@ -1193,12 +1193,21 @@ p {
   color: var(--text);
 }
 
-.score-a {
+.score-mine {
+  color: var(--orange);
+}
+
+.score-theirs {
   color: var(--muted);
 }
 
-.score-b {
-  color: var(--orange);
+.score-labels {
+  display: flex;
+  gap: 46px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-top: 2px;
 }
 
 .alive-row {
