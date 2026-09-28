@@ -1,9 +1,10 @@
 import type { FastifyInstance } from 'fastify';
 import { AppError, codes, type FaceitPlayerRef, type FaceitTeamRef, type GameEvent } from '@cs2coach/shared';
-import { addMatchPlayer, findFaceitAccountByFaceitUserId, listMatchesForUser, updateMatchStatus, upsertMatchFromFaceit, upsertPlayer } from '@cs2coach/database';
+import { addMatchPlayer, findFaceitAccountByFaceitUserId, insertPlayerDeath, listMatchesForUser, setDeathRoundOutcome, updateMatchStatus, upsertMatchFromFaceit, upsertPlayer } from '@cs2coach/database';
 import type { FaceitMatchDetail } from '@cs2coach/faceit';
 import type { AppConfig } from '../config';
 import { stateForTeam } from '../ws/team-view';
+import { observeTick, type DeathTrackerMemory } from '../gsi/death-tracker';
 
 type GsiBody = Record<string, any>;
 type GsiMemory = { phase?: string; round: number; finished?: boolean };
@@ -12,6 +13,27 @@ const gsiMemory = new Map<string, GsiMemory>();
 const lastAiHash = new Map<string, string>();
 const activeMatchCache = new Map<string, MatchCacheEntry>();
 const ACTIVE_MATCH_CACHE_MS = 15_000;
+// Keyed by the sending client's SteamID (GSI provider), not the spectated player.
+const deathTrackers = new Map<string, DeathTrackerMemory>();
+const TRACKER_IDLE_MS = 2 * 60 * 60_000;
+
+async function trackDeaths(config: AppConfig, body: GsiBody): Promise<void> {
+  const providerId = typeof body.provider?.steamid === 'string' ? body.provider.steamid : null;
+  if (!providerId) return;
+  const now = Date.now();
+  if (deathTrackers.size > 500) for (const [id, m] of deathTrackers) if (now - m.lastSeen > TRACKER_IDLE_MS) deathTrackers.delete(id);
+  const memory = deathTrackers.get(providerId) ?? { alive: false, lastSeen: now };
+  deathTrackers.set(providerId, memory);
+  const { death, roundEnded } = observeTick(memory, body, now);
+  if (!memory.matchDbId) return;
+  try {
+    if (death && memory.playerDbId) await insertPlayerDeath(config.db, { matchId: memory.matchDbId, playerId: memory.playerDbId, ...death });
+    if (roundEnded) await setDeathRoundOutcome(config.db, { matchId: memory.matchDbId, ...roundEnded });
+  } catch (error) {
+    config.logger.warn('gsi_death_save_failed', { matchId: memory.matchDbId, error: error instanceof Error ? error.message : String(error) });
+  }
+  if (body.map?.phase === 'gameover') deathTrackers.delete(providerId);
+}
 
 function teamRef(faction: Record<string, any> | undefined): FaceitTeamRef | undefined { if (!faction) return undefined; const roster = Array.isArray(faction.roster) ? faction.roster : Array.isArray(faction.members) ? faction.members : []; return { teamId: typeof faction.team_id === 'string' ? faction.team_id : undefined, name: typeof faction.nickname === 'string' ? faction.nickname : undefined, players: roster.filter((m: any) => typeof m?.player_id === 'string' && typeof m?.nickname === 'string').map((m: any) => ({ faceitPlayerId: m.player_id, nickname: m.nickname, avatar: m.avatar, skillLevel: m.skill_level })) }; }
 function positionOf(player: any): { x: number; y: number; z: number } | undefined { if (typeof player?.position !== 'string') return undefined; const parts = player.position.split(',').map((v: string) => Number(v.trim())); return parts.length === 3 && parts.every(Number.isFinite) ? { x: parts[0]!, y: parts[1]!, z: parts[2]! } : undefined; }
@@ -60,6 +82,7 @@ export async function gameStateGsiRoutes(app: FastifyInstance, config: AppConfig
     if (config.env.isProduction && !expectedToken) throw new AppError(codes.missingEnv, 'CS2_GSI_TOKEN is not configured', 503);
     const body = (request.body ?? {}) as GsiBody;
     if (expectedToken && body.auth?.token !== expectedToken) throw new AppError(codes.unauthorized, 'Invalid CS2 GSI token', 401);
+    await trackDeaths(config, body);
     const steamId = typeof body.player?.steamid === 'string' ? body.player.steamid : typeof body.provider?.steamid === 'string' ? body.provider.steamid : null;
     if (!steamId) return reply.code(202).send({ ok: true, waiting: true, reason: 'player steamid unavailable' });
     let faceitPlayer; try { faceitPlayer = await config.faceitClient.getPlayerByGamePlayerId(steamId, 'cs2'); } catch { return reply.code(202).send({ ok: true, waiting: true, reason: 'FACEIT player not resolved from CS2 SteamID' }); }
@@ -69,6 +92,8 @@ export async function gameStateGsiRoutes(app: FastifyInstance, config: AppConfig
     const playerRow = await upsertPlayer(config.db, { faceitPlayerId: faceitPlayer.player_id, nickname: faceitPlayer.nickname, avatar: faceitPlayer.avatar, country: faceitPlayer.country, skillLevel: faceitPlayer.games?.cs2?.skill_level, elo: faceitPlayer.games?.cs2?.faceit_elo });
     const factions = Object.values(detail.teams ?? {}) as Array<Record<string, any>>; const userFactionIndex = factions.findIndex((f) => (f.roster ?? f.members ?? []).some((p: any) => p.player_id === faceitPlayer.player_id || p.game_player_id === steamId)); const localTeam = userFactionIndex === 1 ? 'B' : 'A';
     await addMatchPlayer(config.db, { matchId: match.id, playerId: playerRow.id, team: localTeam });
+    const tracker = body.provider?.steamid === steamId ? deathTrackers.get(steamId) : undefined;
+    if (tracker) { tracker.matchDbId = match.id; tracker.playerDbId = playerRow.id; }
     const a = teamRef(factions[0]); const b = teamRef(factions[1]); const memory = gsiMemory.get(detail.match_id) ?? { round: 0 }; const events: GameEvent[] = []; const mapName = typeof body.map?.name === 'string' ? body.map.name : detail.details?.map;
     if (!config.matchStateEngine.has(detail.match_id)) events.push({ type: 'match_started', matchId: detail.match_id, ts: Date.now(), map: mapName, teams: { a, b } });
     const round = currentRound(body); const phase = typeof body.round?.phase === 'string' ? body.round.phase : undefined;

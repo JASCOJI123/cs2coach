@@ -5,3 +5,5 @@ export interface MatchStat{nickname:string;faceitPlayerId:string;avatar?:string|
 export interface MatchStatsResponse{matchId:string;score:{a:number;b:number};status:string;map?:string|null;player:MatchStat|null;players:MatchStat[];statsSource?:'faceit-match'|'database-cache'}
 
 export interface NotificationSettings{telegram:{available:boolean;linked:boolean;username:string|null;linkedAt:string|null};enabled:boolean;locale:string}
+export interface MatchDeathLite{faceitPlayerId:string;nickname:string;round:number;seconds:number|null;side:'CT'|'T'|null;position:{x:number;y:number;z:number};weapon:string|null;roundWon:boolean|null}
+export interface MatchDeathsResponse{map:string|null;myFaceitId:string|null;deaths:MatchDeathLite[]}

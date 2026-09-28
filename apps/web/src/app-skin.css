@@ -238,3 +238,41 @@ body::after{
 .radar-note{margin:10px 0 0;font:600 10px var(--app-mono);letter-spacing:.08em;text-transform:uppercase;color:#6d7883;text-align:center}
 @media (min-width:900px){.match .live-radar{max-width:620px;margin-inline:auto}}
 @media (prefers-reduced-motion:reduce){body::before,body::after{animation:none}.radar-sweep,.radar-dot.me,.radar-site.hot{animation:none}}
+
+/* ── Post-match death map ─────────────────────────────────────────────── */
+.death-review{margin-top:14px}
+.death-review .radar-levels{flex-wrap:wrap}
+.death-empty{margin:10px 0 0;font-size:13px}
+.death-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0}
+.death-stats div{padding:10px 8px;border-radius:12px;background:rgba(255,255,255,.03);border:1px solid var(--app-edge);text-align:center}
+.death-stats b{display:block;font:800 20px var(--app-display);color:#fff}
+.death-stats small{display:block;margin-top:2px;font:600 9px var(--app-mono);letter-spacing:.08em;text-transform:uppercase;color:#7d8995}
+.death-stats .warn b{color:#ff5c5c}
+.death-mark{position:absolute;z-index:4;transform:translate(-50%,-50%);width:22px;height:22px;padding:0;border:0;background:none;cursor:pointer;animation:death-pop .45s var(--app-ease) both}
+.death-mark::before,.death-mark::after{content:"";position:absolute;left:50%;top:50%;width:18px;height:3px;border-radius:2px;background:#c9d3dc;box-shadow:0 0 0 1px rgba(0,0,0,.6)}
+.death-mark::before{transform:translate(-50%,-50%) rotate(45deg)}
+.death-mark::after{transform:translate(-50%,-50%) rotate(-45deg)}
+.death-mark.lost::before,.death-mark.lost::after{background:#ff4d4d}
+.death-mark.me::before,.death-mark.me::after{box-shadow:0 0 8px rgba(255,122,0,.55),0 0 0 1px rgba(0,0,0,.6)}
+.death-mark span{position:absolute;left:50%;top:-13px;transform:translateX(-50%);font:800 9px var(--app-mono);color:#fff;text-shadow:0 1px 2px #000;pointer-events:none}
+.death-mark.selected{z-index:6;animation:none;transform:translate(-50%,-50%) scale(1.5)}
+.death-mark.selected::before,.death-mark.selected::after{background:var(--orange)}
+.death-hotspot{position:absolute;z-index:3;width:18%;aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(circle,rgba(255,77,77,.35),rgba(255,77,77,0) 70%);border:1px dashed rgba(255,77,77,.6);animation:radar-hot 2s ease-in-out infinite;pointer-events:none}
+.death-insights{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:8px}
+.death-insights li{padding:10px 12px;border-radius:12px;font-size:13px;line-height:1.45;color:#dfe6ec;background:linear-gradient(90deg,rgba(255,122,0,.12),rgba(255,122,0,.02));border-left:3px solid var(--orange)}
+.death-list{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:4px;max-height:280px;overflow:auto}
+.death-list button{display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border-radius:10px;border:1px solid transparent;background:rgba(255,255,255,.025);color:#cfd8e0;font-size:12px;text-align:left;cursor:pointer}
+.death-list li.selected button{border-color:rgba(255,122,0,.5);background:rgba(255,122,0,.08)}
+.death-list b{min-width:34px;font:800 12px var(--app-mono);color:#fff}
+.death-list .mono{font-family:var(--app-mono);color:#aab6c2}
+.death-list .side{font:700 10px var(--app-mono);padding:2px 6px;border-radius:6px}
+.death-list .side.ct{color:#6fb6ff;background:rgba(111,182,255,.12)}
+.death-list .side.t{color:#ffc46b;background:rgba(255,196,107,.12)}
+.death-list .who{color:#fff;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.death-list .weapon{color:#7d8995;text-transform:uppercase;font:600 10px var(--app-mono)}
+.death-list em{margin-left:auto;font:700 10px var(--app-mono);font-style:normal;text-transform:uppercase}
+.death-list em.won{color:#38e68b}
+.death-list em.lost{color:#ff5c5c}
+@keyframes death-pop{from{opacity:0;transform:translate(-50%,-50%) scale(2.4)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+@media (max-width:520px){.death-stats{grid-template-columns:repeat(2,1fr)}}
+@media (prefers-reduced-motion:reduce){.death-mark,.death-hotspot{animation:none}}
